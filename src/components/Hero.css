@@ -1,0 +1,10 @@
+/* Hero Section */
+.hero-section {
+    padding: 100px 0;
+}
+
+@media (max-width: 480px) {
+    .hero-section {
+        padding: 60px 0;
+    }
+}

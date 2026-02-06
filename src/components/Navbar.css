@@ -1,0 +1,123 @@
+.navbar {
+    background: rgba(10, 11, 16, 0.95);
+    backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border-color);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    padding: 1rem 0;
+}
+
+.nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nav-logo {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+}
+
+.text-accent {
+    color: var(--accent-color);
+}
+
+.nav-links {
+    display: flex;
+    gap: 2rem;
+}
+
+.nav-link {
+    color: var(--text-secondary);
+    font-weight: 600;
+    transition: var(--transition);
+    position: relative;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    font-size: inherit;
+}
+
+.profile-icon {
+    font-size: 1.5rem;
+    padding: 5px;
+    transition: var(--transition);
+}
+
+.profile-icon:hover {
+    transform: scale(1.1);
+}
+
+.logout-btn {
+    color: var(--text-primary) !important;
+    font-size: 1.2rem;
+    padding: 5px;
+}
+
+.logout-btn:hover {
+    color: var(--danger) !important;
+    transform: scale(1.1);
+}
+
+/* Logged in nav links - clean icons only */
+.nav-links.logged-in {
+    display: flex;
+    position: static;
+    transform: none;
+    flex-direction: row;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    border: none;
+    gap: 1rem;
+    justify-content: flex-end;
+    align-items: center;
+}
+
+.nav-link:hover,
+.nav-link.active {
+    color: var(--text-primary);
+}
+
+.nav-link.active::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 0;
+    width: 100%;
+    height: 2px;
+    background: var(--accent-color);
+    box-shadow: 0 0 10px var(--accent-color);
+}
+
+.nav-toggle {
+    display: none;
+    flex-direction: column;
+    cursor: pointer;
+    gap: 5px;
+}
+
+.bar {
+    width: 25px;
+    height: 3px;
+    background-color: var(--text-primary);
+    border-radius: 2px;
+    transition: var(--transition);
+}
+
+@media (max-width: 768px) {
+    /* Remove all mobile-specific nav styling since we're keeping it simple */
+    .profile-icon {
+        font-size: 1.8rem;
+        padding: 8px;
+    }
+
+    .logout-btn {
+        font-size: 1.4rem;
+        padding: 6px 12px;
+    }
+}

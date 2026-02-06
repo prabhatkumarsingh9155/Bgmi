@@ -1,13 +1,311 @@
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
+
+:root {
+  --bg-primary: #0a0b10;
+  --bg-secondary: #16181f;
+  --bg-tertiary: #1f222e;
+
+  --text-primary: #ffffff;
+  --text-secondary: #a0a5b9;
+  --text-muted: #6b7280;
+
+  --accent-color: #ffaa00;
+  /* BGMI Gold/Orange */
+  --accent-hover: #e09600;
+  --accent-glow: rgba(255, 170, 0, 0.5);
+
+  --danger: #ff4444;
+  --success: #00cc66;
+
+  --border-color: #2d3242;
+  --glass-bg: rgba(22, 24, 31, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.1);
+
+  --transition: all 0.3s ease;
+  --radius: 12px;
 }
 
-code {
-  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
-    monospace;
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Utilities */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.heading-glitch {
+  font-size: 2.5rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--text-primary);
+  position: relative;
+  letter-spacing: 2px;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--accent-color), #ff8800);
+  color: #000;
+  padding: 12px 24px;
+  border-radius: var(--radius);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  transition: var(--transition);
+  box-shadow: 0 4px 15px var(--accent-glow);
+  display: inline-block;
+  text-align: center;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px var(--accent-glow);
+}
+
+.btn-secondary {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+  padding: 12px 24px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  border: 1px solid var(--border-color);
+  transition: var(--transition);
+  display: inline-block;
+  text-align: center;
+}
+
+.btn-secondary:hover {
+  background: var(--bg-secondary);
+  border-color: var(--text-secondary);
+}
+
+.card {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.input-field {
+  width: 100%;
+  padding: 12px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  font-family: inherit;
+  transition: var(--transition);
+}
+
+.input-field:focus {
+  outline: none;
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(255, 170, 0, 0.2);
+}
+
+/* Responsive Helpers */
+.table-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .heading-glitch {
+    font-size: 2rem;
+  }
+
+  .grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .container {
+    padding: 0 20px;
+  }
+}
+
+@media (max-width: 480px) {
+  .heading-glitch {
+    font-size: 1.5rem;
+    /* Smaller for mobile */
+    letter-spacing: 1px;
+    -webkit-text-stroke: 0.5px var(--text-primary);
+    /* Thinner stroke */
+  }
+
+  h2 {
+    font-size: 1.2rem !important;
+    /* Force smaller h2 */
+  }
+
+  h3 {
+    font-size: 1.1rem !important;
+  }
+
+  h4 {
+    font-size: 1rem !important;
+  }
+
+  .container {
+    padding: 0 16px;
+    max-width: 100%;
+  }
+
+  .card {
+    padding: 16px;
+    margin: 10px 0;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    width: 100%;
+    margin-bottom: 12px;
+    padding: 14px 20px;
+    /* Larger touch target */
+    font-size: 0.9rem;
+  }
+
+  .btn-primary:last-child,
+  .btn-secondary:last-child {
+    margin-bottom: 0;
+  }
+
+  /* Input fields better sizing on mobile */
+  .input-field {
+    padding: 14px;
+    font-size: 16px;
+    /* Prevent zoom on iOS */
+  }
+
+  .input-label {
+    font-size: 0.85rem;
+    margin-bottom: 6px;
+  }
+
+  /* Player cards on mobile */
+  .player-card {
+    margin-bottom: 15px !important;
+    padding: 12px !important;
+  }
+
+  /* Checkbox labels */
+  label {
+    font-size: 0.85rem !important;
+  }
+
+  /* Note section */
+  .note-section {
+    padding: 12px !important;
+    font-size: 0.8rem !important;
+  }
+
+  /* Profile page specific */
+  p {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    margin-bottom: 8px;
+  }
+
+  /* Profile header on mobile */
+  .heading-glitch {
+    font-size: 1.3rem !important;
+  }
+
+  /* Keep profile header flex on mobile but smaller */
+  .profile-header {
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+  }
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  /* For horizontal scroll */
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-primary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-tertiary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-color);
+}
+
+/* Hero Section */
+/* Hero Section */
+.hero-section {
+  padding: 60px 0;
+  /* Reduced from 100px */
+}
+
+.features-section {
+  padding: 40px 0;
+  /* Reduced from inline 80px */
+}
+
+@media (max-width: 480px) {
+  .hero-section {
+    padding: 40px 0;
+    /* Reduced from 60px */
+  }
+
+  .features-section {
+    padding: 30px 0;
+  }
 }

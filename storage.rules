@@ -1,0 +1,18 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Team Logos: Public Read, Public Write (for registration)
+    match /team_logos/{imageId} {
+      allow read: if true;
+      allow write: if request.resource.size < 5 * 1024 * 1024 
+                   && request.resource.contentType.matches('image/.*');
+    }
+
+    // Proofs: Admin Read, Public Write (for players)
+    match /proofs/{teamName}/{fileId} {
+      allow read: if request.auth != null; // Admin only
+      allow write: if request.resource.size < 50 * 1024 * 1024; // 50MB limit
+    }
+  }
+}
