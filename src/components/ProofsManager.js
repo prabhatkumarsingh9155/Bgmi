@@ -1,31 +1,24 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { collection, getDocs, updateDoc, doc, orderBy, query } from 'firebase/firestore';
+import { collection, onSnapshot, updateDoc, doc, orderBy, query } from 'firebase/firestore';
 
 const ProofsManager = () => {
     const [proofs, setProofs] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const [loading, setLoading] = useState(true);
 
     useEffect(() => {
-        fetchProofs();
-    }, []);
-
-    const fetchProofs = async () => {
-        setLoading(true);
-        try {
-            const q = query(collection(db, "proofs"), orderBy("uploadedAt", "desc"));
-            const snap = await getDocs(q);
+        const q = query(collection(db, "proofs"), orderBy("uploadedAt", "desc"));
+        const unsubscribe = onSnapshot(q, (snap) => {
             setProofs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-        } catch (error) {
-            console.error("Error fetching proofs", error);
-        }
-        setLoading(false);
-    };
+            setLoading(false);
+        });
+        
+        return () => unsubscribe();
+    }, []);
 
     const handleStatus = async (id, status) => {
         try {
             await updateDoc(doc(db, "proofs", id), { status });
-            fetchProofs(); // Refresh
         } catch (error) {
             alert("Error updating status");
         }

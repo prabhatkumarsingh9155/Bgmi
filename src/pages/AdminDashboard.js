@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { deleteUser } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
@@ -15,10 +16,17 @@ const AdminDashboard = () => {
     const [notifications, setNotifications] = useState([]);
 
     // Room Details
-    const [roomData, setRoomData] = useState({ matchName: '', roomId: '', password: '' });
+    const [roomData, setRoomData] = useState({ matchName: '', roomId: '', password: '', delayMinutes: '0' });
     const [roomDetails, setRoomDetails] = useState([]);
     const [showRoomModal, setShowRoomModal] = useState(false);
     const [selectedMatch, setSelectedMatch] = useState(null);
+
+    // Custom Modals
+    const [modal, setModal] = useState({ show: false, type: '', message: '', onConfirm: null, data: null });
+
+    // Slot Assignment
+    const [showSlotModal, setShowSlotModal] = useState(false);
+    const [slotData, setSlotData] = useState({ teamIndex: null, slotNumber: '' });
 
     // Tournament Info
     const [tournamentInfo, setTournamentInfo] = useState({
@@ -130,42 +138,115 @@ const AdminDashboard = () => {
         setLoading(false);
     };
 
-    const handleDelete = async (index) => {
-        if (window.confirm("Are you sure you want to delete this team?")) {
-            try {
-                const currentTeams = JSON.parse(localStorage.getItem('teams') || '[]');
-                currentTeams.splice(index, 1);
-                localStorage.setItem('teams', JSON.stringify(currentTeams));
-                fetchTeams(); // Refresh
-            } catch (err) {
-                alert("Error deleting team");
+    const handleDelete = (index) => {
+        const teamToDelete = teams[index];
+        setModal({
+            show: true,
+            type: 'confirm',
+            message: 'Are you sure you want to delete this team? This will also delete their account.',
+            onConfirm: async () => {
+                try {
+                    const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+                    const docSnap = await getDoc(docRef);
+                    
+                    let allTeams = [];
+                    if (docSnap.exists()) {
+                        const currentData = docSnap.data().bgmi;
+                        if (currentData && currentData !== "") {
+                            allTeams = JSON.parse(currentData);
+                        }
+                    }
+                    
+                    const actualIndex = allTeams.findIndex(t => t.captainEmail === teamToDelete.captainEmail);
+                    if (actualIndex !== -1) {
+                        const teamEmail = allTeams[actualIndex].captainEmail;
+                        allTeams.splice(actualIndex, 1);
+                        
+                        await updateDoc(docRef, {
+                            bgmi: JSON.stringify(allTeams)
+                        });
+                        
+                        setModal({ show: true, type: 'success', message: `Team deleted successfully! Note: Firebase Auth user (${teamEmail}) should be manually deleted from Firebase Console.`, onConfirm: null });
+                    }
+                } catch (err) {
+                    setModal({ show: true, type: 'error', message: 'Error deleting team', onConfirm: null });
+                }
             }
-        }
+        });
     };
 
     const handleApproveTeam = async (teamIndex, newStatus) => {
         try {
+            const teamToUpdate = teams[teamIndex];
             const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
             const docSnap = await getDoc(docRef);
             
-            let teams = [];
+            let allTeams = [];
             if (docSnap.exists()) {
                 const currentData = docSnap.data().bgmi;
                 if (currentData && currentData !== "") {
-                    teams = JSON.parse(currentData);
+                    allTeams = JSON.parse(currentData);
                 }
             }
             
-            teams[teamIndex].status = newStatus;
-            
-            await updateDoc(docRef, {
-                bgmi: JSON.stringify(teams)
-            });
-            
-            alert(`Team status updated to ${newStatus}!`);
-            fetchTeams();
+            const actualIndex = allTeams.findIndex(t => t.captainEmail === teamToUpdate.captainEmail);
+            if (actualIndex !== -1) {
+                allTeams[actualIndex].status = newStatus;
+                
+                await updateDoc(docRef, {
+                    bgmi: JSON.stringify(allTeams)
+                });
+                
+                setModal({ show: true, type: 'success', message: `Team status updated to ${newStatus}!`, onConfirm: null });
+            }
         } catch (error) {
-            alert("Error updating team status");
+            setModal({ show: true, type: 'error', message: 'Error updating team status', onConfirm: null });
+        }
+    };
+
+    const handleAssignSlot = async () => {
+        if (!slotData.slotNumber || slotData.teamIndex === null) return;
+
+        const slotNum = parseInt(slotData.slotNumber);
+        if (isNaN(slotNum) || slotNum < 1 || slotNum > 100) {
+            setModal({ show: true, type: 'error', message: 'Please enter a valid slot number (1-100)', onConfirm: null });
+            return;
+        }
+
+        // Check if slot is already taken
+        const slotTaken = teams.some((t, idx) => t.slotNumber === slotNum && idx !== slotData.teamIndex);
+        if (slotTaken) {
+            setModal({ show: true, type: 'error', message: `Slot #${slotNum} is already assigned to another team!`, onConfirm: null });
+            return;
+        }
+
+        try {
+            const teamToUpdate = teams[slotData.teamIndex];
+            const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+            const docSnap = await getDoc(docRef);
+            
+            let allTeams = [];
+            if (docSnap.exists()) {
+                const currentData = docSnap.data().bgmi;
+                if (currentData && currentData !== "") {
+                    allTeams = JSON.parse(currentData);
+                }
+            }
+            
+            const actualIndex = allTeams.findIndex(t => t.captainEmail === teamToUpdate.captainEmail);
+            if (actualIndex !== -1) {
+                allTeams[actualIndex].slotNumber = slotNum;
+                
+                await updateDoc(docRef, {
+                    bgmi: JSON.stringify(allTeams)
+                });
+                
+                setShowSlotModal(false);
+                setSlotData({ teamIndex: null, slotNumber: '' });
+                setModal({ show: true, type: 'success', message: `Slot #${slotNum} assigned successfully!`, onConfirm: null });
+            }
+        } catch (error) {
+            setModal({ show: true, type: 'error', message: 'Error assigning slot', onConfirm: null });
         }
     };
 
@@ -229,30 +310,34 @@ const AdminDashboard = () => {
                 notifications: JSON.stringify(existingNotifications)
             });
             
-            alert("Notification Sent!");
+            setModal({ show: true, type: 'success', message: 'Notification Sent!', onConfirm: null });
             setNotifData({ title: '', message: '' });
             fetchNotifications();
         } catch (error) {
-            alert("Error sending notification");
+            setModal({ show: true, type: 'error', message: 'Error sending notification', onConfirm: null });
         }
     };
 
-    const handleDeleteNotification = async (notifId) => {
-        if (!window.confirm("Are you sure you want to delete this notification?")) return;
-
-        try {
-            const updatedNotifications = notifications.filter(n => n.id !== notifId);
-            
-            const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
-            await updateDoc(docRef, {
-                notifications: JSON.stringify(updatedNotifications)
-            });
-            
-            alert("Notification deleted!");
-            fetchNotifications();
-        } catch (error) {
-            alert("Error deleting notification");
-        }
+    const handleDeleteNotification = (notifId) => {
+        setModal({
+            show: true,
+            type: 'confirm',
+            message: 'Are you sure you want to delete this notification?',
+            onConfirm: async () => {
+                try {
+                    const updatedNotifications = notifications.filter(n => n.id !== notifId);
+                    
+                    const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+                    await updateDoc(docRef, {
+                        notifications: JSON.stringify(updatedNotifications)
+                    });
+                    
+                    setModal({ show: true, type: 'success', message: 'Notification deleted!', onConfirm: null });
+                } catch (error) {
+                    setModal({ show: true, type: 'error', message: 'Error deleting notification', onConfirm: null });
+                }
+            }
+        });
     };
 
     const fetchRoomDetails = async () => {
@@ -309,35 +394,62 @@ const AdminDashboard = () => {
                 roomDetails: JSON.stringify(existingRooms)
             });
             
-            alert("Room Details Sent!");
+            setModal({ show: true, type: 'success', message: 'Room Details Sent!', onConfirm: null });
             setRoomData({ matchName: '', roomId: '', password: '' });
             fetchRoomDetails();
         } catch (error) {
-            alert("Error sending room details");
+            setModal({ show: true, type: 'error', message: 'Error sending room details', onConfirm: null });
         }
     };
 
-    const handleDeleteRoomDetails = async (roomId) => {
-        if (!window.confirm("Are you sure you want to delete this room detail?")) return;
-
-        try {
-            const updatedRooms = roomDetails.filter(r => r.id !== roomId);
-            
-            const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
-            await updateDoc(docRef, {
-                roomDetails: JSON.stringify(updatedRooms)
-            });
-            
-            alert("Room details deleted!");
-            fetchRoomDetails();
-        } catch (error) {
-            alert("Error deleting room details");
-        }
+    const handleDeleteRoomDetails = (roomId) => {
+        setModal({
+            show: true,
+            type: 'confirm',
+            message: 'Are you sure you want to delete this room detail?',
+            onConfirm: async () => {
+                try {
+                    const updatedRooms = roomDetails.filter(r => r.id !== roomId);
+                    
+                    const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+                    await updateDoc(docRef, {
+                        roomDetails: JSON.stringify(updatedRooms)
+                    });
+                    
+                    setModal({ show: true, type: 'success', message: 'Room details deleted!', onConfirm: null });
+                } catch (error) {
+                    setModal({ show: true, type: 'error', message: 'Error deleting room details', onConfirm: null });
+                }
+            }
+        });
     };
 
     const handleSendRoomDetailsFromSchedule = async () => {
         if (!roomData.roomId || !roomData.password) {
-            alert('Please enter both Room ID and Password');
+            setModal({ show: true, type: 'error', message: 'Please enter both Room ID and Password', onConfirm: null });
+            return;
+        }
+
+        // Check if match has a time set
+        const match = tournamentInfo.rounds[selectedMatch.rIdx].days[selectedMatch.dIdx].matchTimes[selectedMatch.mIdx];
+        if (!match.time || match.time.trim() === '') {
+            setModal({ 
+                show: true, 
+                type: 'error', 
+                message: 'Please add a match time first! Go to Match Schedule and set a time (e.g., "6:00 PM IST") for this match, then try again.', 
+                onConfirm: null 
+            });
+            return;
+        }
+
+        const delayMinutes = parseInt(roomData.delayMinutes) || 0;
+        if (delayMinutes === 0) {
+            setModal({ 
+                show: true, 
+                type: 'error', 
+                message: 'Please set a delay time (e.g., 10 minutes). Delay cannot be 0 - room details must be revealed with a timer.', 
+                onConfirm: null 
+            });
             return;
         }
 
@@ -345,6 +457,7 @@ const AdminDashboard = () => {
             const updated = [...tournamentInfo.rounds];
             updated[selectedMatch.rIdx].days[selectedMatch.dIdx].matchTimes[selectedMatch.mIdx].roomId = roomData.roomId;
             updated[selectedMatch.rIdx].days[selectedMatch.dIdx].matchTimes[selectedMatch.mIdx].password = roomData.password;
+            updated[selectedMatch.rIdx].days[selectedMatch.dIdx].matchTimes[selectedMatch.mIdx].revealBeforeMinutes = delayMinutes;
             
             const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
             await updateDoc(docRef, {
@@ -353,31 +466,37 @@ const AdminDashboard = () => {
             
             setTournamentInfo({ ...tournamentInfo, rounds: updated });
             setShowRoomModal(false);
-            setRoomData({ matchName: '', roomId: '', password: '' });
-            alert('Room details sent successfully!');
+            setRoomData({ matchName: '', roomId: '', password: '', delayMinutes: '0' });
+            setModal({ show: true, type: 'success', message: `Room details will be revealed ${delayMinutes} minutes before match time!`, onConfirm: null });
         } catch (error) {
-            alert('Error sending room details');
+            setModal({ show: true, type: 'error', message: 'Error sending room details', onConfirm: null });
         }
     };
 
-    const handleDeleteRoomDetailsFromSchedule = async (rIdx, dIdx, mIdx) => {
-        if (!window.confirm('Are you sure you want to delete room details for this match?')) return;
-
-        try {
-            const updated = [...tournamentInfo.rounds];
-            updated[rIdx].days[dIdx].matchTimes[mIdx].roomId = '';
-            updated[rIdx].days[dIdx].matchTimes[mIdx].password = '';
-            
-            const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
-            await updateDoc(docRef, {
-                tournamentInfo: JSON.stringify({ ...tournamentInfo, rounds: updated })
-            });
-            
-            setTournamentInfo({ ...tournamentInfo, rounds: updated });
-            alert('Room details deleted successfully!');
-        } catch (error) {
-            alert('Error deleting room details');
-        }
+    const handleDeleteRoomDetailsFromSchedule = (rIdx, dIdx, mIdx) => {
+        setModal({
+            show: true,
+            type: 'confirm',
+            message: 'Are you sure you want to delete room details for this match?',
+            onConfirm: async () => {
+                try {
+                    const updated = [...tournamentInfo.rounds];
+                    updated[rIdx].days[dIdx].matchTimes[mIdx].roomId = '';
+                    updated[rIdx].days[dIdx].matchTimes[mIdx].password = '';
+                    updated[rIdx].days[dIdx].matchTimes[mIdx].revealBeforeMinutes = 0;
+                    
+                    const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+                    await updateDoc(docRef, {
+                        tournamentInfo: JSON.stringify({ ...tournamentInfo, rounds: updated })
+                    });
+                    
+                    setTournamentInfo({ ...tournamentInfo, rounds: updated });
+                    setModal({ show: true, type: 'success', message: 'Room details deleted successfully!', onConfirm: null });
+                } catch (error) {
+                    setModal({ show: true, type: 'error', message: 'Error deleting room details', onConfirm: null });
+                }
+            }
+        });
     };
 
     const fetchTournamentInfo = async () => {
@@ -407,9 +526,9 @@ const AdminDashboard = () => {
             await updateDoc(docRef, {
                 tournamentInfo: JSON.stringify(tournamentInfo)
             });
-            alert('Tournament information updated successfully!');
+            setModal({ show: true, type: 'success', message: 'Tournament information updated successfully!', onConfirm: null });
         } catch (error) {
-            alert('Error updating tournament information');
+            setModal({ show: true, type: 'error', message: 'Error updating tournament information', onConfirm: null });
         }
     };
 
@@ -520,6 +639,88 @@ const AdminDashboard = () => {
 
     return (
         <div className="container" style={{ padding: '50px 10px' }}>
+            {/* Custom Modal */}
+            {modal.show && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.85)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '15px', padding: '30px', maxWidth: '450px', width: '100%', border: `2px solid ${modal.type === 'error' ? 'var(--danger)' : 'var(--accent-color)'}`, textAlign: 'center' }}>
+                        <div style={{ fontSize: '3rem', marginBottom: '15px' }}>
+                            {modal.type === 'success' && '✅'}
+                            {modal.type === 'error' && '❌'}
+                            {modal.type === 'confirm' && '⚠️'}
+                        </div>
+                        <p style={{ fontSize: '1.1rem', color: 'var(--text-primary)', marginBottom: '25px', lineHeight: '1.6' }}>{modal.message}</p>
+                        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+                            {modal.type === 'confirm' ? (
+                                <>
+                                    <button
+                                        onClick={() => {
+                                            modal.onConfirm();
+                                            setModal({ show: false, type: '', message: '', onConfirm: null });
+                                        }}
+                                        style={{ padding: '12px 30px', background: 'var(--accent-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+                                    >
+                                        Confirm
+                                    </button>
+                                    <button
+                                        onClick={() => setModal({ show: false, type: '', message: '', onConfirm: null })}
+                                        style={{ padding: '12px 30px', background: 'transparent', color: 'var(--text-primary)', border: '2px solid var(--border-color)', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+                                    >
+                                        Cancel
+                                    </button>
+                                </>
+                            ) : (
+                                <button
+                                    onClick={() => setModal({ show: false, type: '', message: '', onConfirm: null })}
+                                    style={{ padding: '12px 40px', background: 'var(--accent-color)', color: '#000', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' }}
+                                >
+                                    OK
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Slot Assignment Modal */}
+            {showSlotModal && (
+                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '30px', maxWidth: '400px', width: '100%', border: '2px solid var(--accent-color)' }}>
+                        <h3 style={{ color: 'var(--accent-color)', marginBottom: '20px' }}>Assign Slot Number</h3>
+                        <div className="input-group">
+                            <label className="input-label">Slot Number (1-100)</label>
+                            <input
+                                type="number"
+                                className="input-field"
+                                value={slotData.slotNumber}
+                                onChange={e => setSlotData({ ...slotData, slotNumber: e.target.value })}
+                                placeholder="Enter slot number"
+                                min="1"
+                                max="100"
+                            />
+                        </div>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                            <button
+                                onClick={handleAssignSlot}
+                                className="btn-primary"
+                                style={{ flex: 1 }}
+                            >
+                                Assign
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowSlotModal(false);
+                                    setSlotData({ teamIndex: null, slotNumber: '' });
+                                }}
+                                className="btn-secondary"
+                                style={{ flex: 1 }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Room Details Modal */}
             {showRoomModal && (
                 <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
@@ -546,6 +747,19 @@ const AdminDashboard = () => {
                                 placeholder="Enter Password"
                             />
                         </div>
+                        <div className="input-group">
+                            <label className="input-label">Reveal Before Match (Minutes) *Required</label>
+                            <input
+                                type="number"
+                                className="input-field"
+                                value={roomData.delayMinutes}
+                                onChange={e => setRoomData({ ...roomData, delayMinutes: e.target.value })}
+                                placeholder="Enter minutes (e.g., 10)"
+                                min="1"
+                                required
+                            />
+                            <small style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Enter minutes before match time to reveal details (minimum 1 minute)</small>
+                        </div>
                         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
                             <button
                                 onClick={handleSendRoomDetailsFromSchedule}
@@ -557,7 +771,7 @@ const AdminDashboard = () => {
                             <button
                                 onClick={() => {
                                     setShowRoomModal(false);
-                                    setRoomData({ matchName: '', roomId: '', password: '' });
+                                    setRoomData({ matchName: '', roomId: '', password: '', delayMinutes: '0' });
                                 }}
                                 className="btn-secondary"
                                 style={{ flex: 1 }}
@@ -682,29 +896,40 @@ const AdminDashboard = () => {
                                                     {team.status || 'Pending'}
                                                 </span>
                                             </td>
-                                            <td style={{ padding: '15px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                {team.status !== 'Approved' && (
+                                            <td style={{ padding: '15px' }}>
+                                                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                                     <button
-                                                        onClick={() => handleApproveTeam(index, 'Approved')}
-                                                        style={{ color: 'var(--success)', background: 'transparent', border: '1px solid var(--success)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                        onClick={() => {
+                                                            setSlotData({ teamIndex: index, slotNumber: team.slotNumber || '' });
+                                                            setShowSlotModal(true);
+                                                        }}
+                                                        style={{ color: 'var(--accent-color)', background: 'transparent', border: '1px solid var(--accent-color)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
                                                     >
-                                                        APPROVE
+                                                        ASSIGN SLOT
                                                     </button>
-                                                )}
-                                                {team.status !== 'Rejected' && (
+                                                    {team.status !== 'Approved' && (
+                                                        <button
+                                                            onClick={() => handleApproveTeam(index, 'Approved')}
+                                                            style={{ color: 'var(--success)', background: 'transparent', border: '1px solid var(--success)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                        >
+                                                            APPROVE
+                                                        </button>
+                                                    )}
+                                                    {team.status !== 'Rejected' && (
+                                                        <button
+                                                            onClick={() => handleApproveTeam(index, 'Rejected')}
+                                                            style={{ color: 'var(--danger)', background: 'transparent', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                        >
+                                                            REJECT
+                                                        </button>
+                                                    )}
                                                     <button
-                                                        onClick={() => handleApproveTeam(index, 'Rejected')}
-                                                        style={{ color: 'var(--danger)', background: 'transparent', border: '1px solid var(--danger)', padding: '4px 8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 'bold', cursor: 'pointer' }}
+                                                        onClick={() => handleDelete(index)}
+                                                        style={{ color: 'var(--danger)', background: 'transparent', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
                                                     >
-                                                        REJECT
+                                                        DELETE
                                                     </button>
-                                                )}
-                                                <button
-                                                    onClick={() => handleDelete(index)}
-                                                    style={{ color: 'var(--danger)', background: 'transparent', border: 'none', fontWeight: 'bold', cursor: 'pointer' }}
-                                                >
-                                                    DELETE
-                                                </button>
+                                                </div>
                                             </td>
                                         </tr>
                                     ))}
@@ -1026,48 +1251,76 @@ const AdminDashboard = () => {
                                         </div>
                                     </div>
 
-                                    {(day.matchTimes || []).map((matchTime, matchIndex) => (
-                                        <div key={matchIndex} style={{ display: 'flex', gap: '10px', marginBottom: '8px', alignItems: 'end' }}>
-                                            <div className="input-group" style={{ flex: 1 }}>
-                                                <label className="input-label">Match</label>
-                                                <input
-                                                    type="text"
-                                                    className="input-field"
-                                                    value={matchTime.matchNumber}
-                                                    onChange={e => {
+                                    {(day.matchTimes || []).map((matchTime, matchIndex) => {
+                                        // Convert stored time back to 24h format for input
+                                        const getTimeValue = (timeStr) => {
+                                            if (!timeStr) return '';
+                                            const match = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+                                            if (!match) return '';
+                                            let hours = parseInt(match[1]);
+                                            const minutes = match[2];
+                                            const period = match[3].toUpperCase();
+                                            if (period === 'PM' && hours !== 12) hours += 12;
+                                            if (period === 'AM' && hours === 12) hours = 0;
+                                            return `${hours.toString().padStart(2, '0')}:${minutes}`;
+                                        };
+                                        
+                                        return (
+                                            <div key={matchIndex} style={{ display: 'flex', gap: '10px', marginBottom: '8px', alignItems: 'end' }}>
+                                                <div className="input-group" style={{ flex: 1 }}>
+                                                    <label className="input-label">Match</label>
+                                                    <input
+                                                        type="text"
+                                                        className="input-field"
+                                                        value={matchTime.matchNumber || ''}
+                                                        onChange={e => {
+                                                            const updated = [...tournamentInfo.rounds];
+                                                            updated[roundIndex].days[dayIndex].matchTimes[matchIndex].matchNumber = e.target.value;
+                                                            setTournamentInfo({ ...tournamentInfo, rounds: updated });
+                                                        }}
+                                                        placeholder="Match 1"
+                                                    />
+                                                </div>
+                                                <div className="input-group" style={{ flex: 1 }}>
+                                                    <label className="input-label">Time</label>
+                                                    <input
+                                                        type="time"
+                                                        className="input-field"
+                                                        value={getTimeValue(matchTime.time)}
+                                                        onChange={e => {
+                                                            const updated = [...tournamentInfo.rounds];
+                                                            const timeValue = e.target.value;
+                                                            if (timeValue) {
+                                                                const [hours, minutes] = timeValue.split(':');
+                                                                const hour = parseInt(hours);
+                                                                const ampm = hour >= 12 ? 'PM' : 'AM';
+                                                                const hour12 = hour % 12 || 12;
+                                                                updated[roundIndex].days[dayIndex].matchTimes[matchIndex].time = `${hour12}:${minutes} ${ampm} IST`;
+                                                            } else {
+                                                                updated[roundIndex].days[dayIndex].matchTimes[matchIndex].time = '';
+                                                            }
+                                                            setTournamentInfo({ ...tournamentInfo, rounds: updated });
+                                                        }}
+                                                    />
+                                                    {matchTime.time && (
+                                                        <small style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '4px', display: 'block' }}>
+                                                            Display: {matchTime.time}
+                                                        </small>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={() => {
                                                         const updated = [...tournamentInfo.rounds];
-                                                        updated[roundIndex].days[dayIndex].matchTimes[matchIndex].matchNumber = e.target.value;
+                                                        updated[roundIndex].days[dayIndex].matchTimes = updated[roundIndex].days[dayIndex].matchTimes.filter((_, i) => i !== matchIndex);
                                                         setTournamentInfo({ ...tournamentInfo, rounds: updated });
                                                     }}
-                                                    placeholder="Match 1"
-                                                />
+                                                    style={{ padding: '8px 12px', color: 'var(--danger)', background: 'transparent', border: '1px solid var(--danger)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+                                                >
+                                                    ×
+                                                </button>
                                             </div>
-                                            <div className="input-group" style={{ flex: 1 }}>
-                                                <label className="input-label">Time</label>
-                                                <input
-                                                    type="text"
-                                                    className="input-field"
-                                                    value={matchTime.time}
-                                                    onChange={e => {
-                                                        const updated = [...tournamentInfo.rounds];
-                                                        updated[roundIndex].days[dayIndex].matchTimes[matchIndex].time = e.target.value;
-                                                        setTournamentInfo({ ...tournamentInfo, rounds: updated });
-                                                    }}
-                                                    placeholder="6:00 PM IST"
-                                                />
-                                            </div>
-                                            <button
-                                                onClick={() => {
-                                                    const updated = [...tournamentInfo.rounds];
-                                                    updated[roundIndex].days[dayIndex].matchTimes = updated[roundIndex].days[dayIndex].matchTimes.filter((_, i) => i !== matchIndex);
-                                                    setTournamentInfo({ ...tournamentInfo, rounds: updated });
-                                                }}
-                                                style={{ padding: '8px 12px', color: 'var(--danger)', background: 'transparent', border: '1px solid var(--danger)', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
-                                            >
-                                                ×
-                                            </button>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                     
                                     <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                                         <button

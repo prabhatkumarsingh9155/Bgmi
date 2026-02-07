@@ -3,12 +3,16 @@ import { db, auth } from '../firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { FaEye, FaEyeSlash, FaUsers, FaGamepad } from 'react-icons/fa';
+import './Registration.css';
 
 const Registration = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [showPassword, setShowPassword] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [successData, setSuccessData] = useState({ teamName: '', slotNumber: 0 });
+    const [errorModal, setErrorModal] = useState({ show: false, message: '' });
     const [formData, setFormData] = useState({
         // Team Details
         teamName: '',
@@ -73,42 +77,53 @@ const Registration = () => {
         
         for (let field of required) {
             if (!formData[field].trim()) {
-                alert(`Please fill in ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}`);
+                setErrorModal({ show: true, message: `Please fill in ${field.replace(/([A-Z])/g, ' $1').toLowerCase()}` });
                 return false;
             }
         }
         
-        // Agreement validation
         if (!formData.agreeToRules) {
-            alert("Please agree to tournament rules and regulations");
+            setErrorModal({ show: true, message: 'Please agree to tournament rules and regulations' });
             return false;
         }
         
         if (!formData.agreeToProof) {
-            alert("Please agree to provide proof if suspicious activity is found");
+            setErrorModal({ show: true, message: 'Please agree to provide proof if suspicious activity is found' });
             return false;
         }
         
-        // WhatsApp validation
         if (formData.captainWhatsapp.length < 10) {
-            alert("Please enter a valid WhatsApp number (10+ digits)");
+            setErrorModal({ show: true, message: 'Please enter a valid WhatsApp number (10+ digits)' });
             return false;
         }
         
-        // Email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(formData.captainEmail)) {
-            alert("Please enter a valid email address");
+            setErrorModal({ show: true, message: 'Please enter a valid email address' });
             return false;
         }
         
-        // BGMI ID validation (should be numeric)
         const bgmiIds = [formData.player1Id, formData.player2Id, formData.player3Id, formData.player4Id];
         for (let id of bgmiIds) {
             if (!/^\d+$/.test(id)) {
-                alert("BGMI IDs should contain only numbers");
+                setErrorModal({ show: true, message: 'BGMI IDs should contain only numbers' });
                 return false;
             }
+        }
+        
+        // Check for duplicate player names within the team
+        const playerNames = [formData.player1Name, formData.player2Name, formData.player3Name, formData.player4Name];
+        const duplicateName = playerNames.find((name, index) => playerNames.indexOf(name) !== index);
+        if (duplicateName) {
+            setErrorModal({ show: true, message: `Player name "${duplicateName}" is used more than once in your team!` });
+            return false;
+        }
+        
+        // Check for duplicate BGMI IDs within the team
+        const duplicateTeamId = bgmiIds.find((id, index) => bgmiIds.indexOf(id) !== index);
+        if (duplicateTeamId) {
+            setErrorModal({ show: true, message: `BGMI ID "${duplicateTeamId}" is used more than once in your team!` });
+            return false;
         }
         
         return true;
@@ -122,14 +137,7 @@ const Registration = () => {
         setLoading(true);
 
         try {
-            // Create Firebase Auth user
-            await createUserWithEmailAndPassword(auth, formData.captainEmail, formData.captainPassword);
-            
-            // Store user email for session
-            localStorage.setItem('userEmail', formData.captainEmail);
-            localStorage.setItem('isLoggedIn', 'true');
-
-            // Get current data from Firebase
+            // Get current data from Firebase FIRST
             const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
             const docSnap = await getDoc(docRef);
             
@@ -145,17 +153,25 @@ const Registration = () => {
                 }
             }
             
-            // Check if team name exists
-            const teamExists = existingTeams.some(team => 
-                team.teamName.toLowerCase() === formData.teamName.toLowerCase()
+            // Check if email exists in Firestore teams
+            const emailExists = existingTeams.some(team => 
+                team.captainEmail.toLowerCase() === formData.captainEmail.toLowerCase()
             );
-            if (teamExists) {
-                alert("Team Name already taken! Please choose another.");
+            if (emailExists) {
+                setErrorModal({ show: true, message: 'Email already registered! Please use a different email.' });
                 setLoading(false);
                 return;
             }
             
-            // Check if any BGMI ID is already registered
+            const teamExists = existingTeams.some(team => 
+                team.teamName.toLowerCase() === formData.teamName.toLowerCase()
+            );
+            if (teamExists) {
+                setErrorModal({ show: true, message: 'Team Name already taken! Please choose another.' });
+                setLoading(false);
+                return;
+            }
+            
             const newIds = [formData.player1Id, formData.player2Id, formData.player3Id, formData.player4Id];
             const existingIds = existingTeams.flatMap(team => [
                 team.player1Id, team.player2Id, team.player3Id, team.player4Id
@@ -163,22 +179,31 @@ const Registration = () => {
             
             const duplicateId = newIds.find(id => existingIds.includes(id));
             if (duplicateId) {
-                alert(`BGMI ID ${duplicateId} is already registered with another team!`);
+                setErrorModal({ show: true, message: `BGMI ID ${duplicateId} is already registered with another team!` });
+                setLoading(false);
+                return;
+            }
+
+            try {
+                await createUserWithEmailAndPassword(auth, formData.captainEmail, formData.captainPassword);
+            } catch (authError) {
+                if (authError.code === 'auth/email-already-in-use') {
+                    setErrorModal({ show: true, message: 'Email already registered! Please use a different email or contact admin.' });
+                } else {
+                    setErrorModal({ show: true, message: `Registration failed: ${authError.message}` });
+                }
                 setLoading(false);
                 return;
             }
             
-            // Generate new slot number
-            let newSlot = 1;
-            if (existingTeams.length > 0) {
-                const maxSlot = Math.max(...existingTeams.map(team => team.slotNumber || 0));
-                newSlot = maxSlot + 1;
-            }
-
-            // Create team data
+            // Store user email for session
+            localStorage.setItem('userEmail', formData.captainEmail);
+            localStorage.setItem('isLoggedIn', 'true');
+            
+            // Create team data without slot number (admin will assign)
             const teamData = {
                 ...formData,
-                slotNumber: newSlot,
+                slotNumber: null,
                 registrationDate: new Date().toISOString(),
                 status: 'pending',
                 paymentStatus: 'pending'
@@ -190,42 +215,44 @@ const Registration = () => {
                 bgmi: JSON.stringify(existingTeams)
             });
 
-            alert(`🎉 Registration Successful!\n\nTeam: ${formData.teamName}\nSlot Number: #${newSlot}\n\nPlease save your slot number for future reference.`);
-            navigate('/profile');
+            setSuccessData({ teamName: formData.teamName, slotNumber: 'Pending' });
+            setShowSuccessModal(true);
 
         } catch (error) {
             console.error("Registration error:", error);
-            alert(`Registration failed: ${error.message}`);
+            setErrorModal({ show: true, message: `Registration failed: ${error.message}` });
         }
 
         setLoading(false);
     };
 
     return (
-        <div className="container" style={{ padding: '20px 0', maxWidth: '900px' }}>
-            <div className="card">
-                <h2 className="heading-glitch" style={{ fontSize: '2rem', marginBottom: '30px', textAlign: 'center' }}>
-                    BGMI Tournament Registration
-                </h2>
-
-                <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                    <button 
-                        type="button" 
-                        onClick={fillSampleData}
-                        className="btn-secondary"
-                        style={{ marginBottom: '20px' }}
-                    >
-                        Fill Sample Data
-                    </button>
+        <div className="registration-page">
+            <div className="registration-container">
+                <div className="registration-header">
+                    <h1 className="registration-title">BGMI Tournament Registration</h1>
+                    <p className="registration-subtitle">Join the ultimate battleground competition</p>
                 </div>
 
-                <form onSubmit={handleSubmit}>
-                    {/* Team Information */}
-                    <div className="input-group">
-                        <h3 style={{ color: 'var(--accent-color)', marginBottom: '20px' }}>Team Information</h3>
+                <div className="registration-form-card">
+                    <div className="sample-btn-container">
+                        <button 
+                            type="button" 
+                            onClick={fillSampleData}
+                            className="btn-sample"
+                        >
+                            Fill Sample Data
+                        </button>
+                    </div>
+
+                    <form onSubmit={handleSubmit}>
+                        {/* Team Information */}
+                        <h3 className="section-header">
+                            <FaUsers /> Team Information
+                        </h3>
                         
-                        <div className="grid-2" style={{ marginBottom: '15px' }}>
-                            <div>
+                        <div className="input-grid">
+                            <div className="input-group">
                                 <label className="input-label">Team Name *</label>
                                 <input
                                     type="text"
@@ -237,7 +264,7 @@ const Registration = () => {
                                     required
                                 />
                             </div>
-                            <div>
+                            <div className="input-group">
                                 <label className="input-label">Captain Name *</label>
                                 <input
                                     type="text"
@@ -251,8 +278,8 @@ const Registration = () => {
                             </div>
                         </div>
 
-                        <div className="grid-2" style={{ marginBottom: '15px' }}>
-                            <div>
+                        <div className="input-grid">
+                            <div className="input-group">
                                 <label className="input-label">Captain WhatsApp *</label>
                                 <input
                                     type="tel"
@@ -264,7 +291,7 @@ const Registration = () => {
                                     required
                                 />
                             </div>
-                            <div>
+                            <div className="input-group">
                                 <label className="input-label">Captain Email *</label>
                                 <input
                                     type="email"
@@ -279,10 +306,10 @@ const Registration = () => {
                             </div>
                         </div>
 
-                        <div className="grid-2" style={{ marginBottom: '15px' }}>
-                            <div>
+                        <div className="input-grid">
+                            <div className="input-group">
                                 <label className="input-label">Password *</label>
-                                <div style={{ position: 'relative' }}>
+                                <div className="password-field">
                                     <input
                                         type={showPassword ? "text" : "password"}
                                         name="captainPassword"
@@ -296,23 +323,13 @@ const Registration = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        style={{
-                                            position: 'absolute',
-                                            right: '12px',
-                                            top: '50%',
-                                            transform: 'translateY(-50%)',
-                                            background: 'none',
-                                            border: 'none',
-                                            cursor: 'pointer',
-                                            color: 'var(--text-secondary)',
-                                            fontSize: '1.2rem'
-                                        }}
+                                        className="password-toggle"
                                     >
                                         {showPassword ? <FaEyeSlash /> : <FaEye />}
                                     </button>
                                 </div>
                             </div>
-                            <div>
+                            <div className="input-group">
                                 <label className="input-label">Alternate Contact (Optional)</label>
                                 <input
                                     type="tel"
@@ -324,127 +341,171 @@ const Registration = () => {
                                 />
                             </div>
                         </div>
-                    </div>
 
-                    {/* Player Information */}
-                    <h3 style={{ color: 'var(--accent-color)', margin: '30px 0 20px' }}>Squad Details</h3>
-                    
-                    {[1, 2, 3, 4].map(num => (
-                        <div key={num} className="player-card" style={{ marginBottom: '20px', padding: '15px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                            <h4 style={{ marginBottom: '15px', color: 'var(--text-primary)' }}>Player {num} *</h4>
-                            <div className="grid-2">
-                                <div>
+                        {/* Player Information */}
+                        <h3 className="section-header">
+                            <FaGamepad /> Squad Details
+                        </h3>
+                        
+                        {[1, 2, 3, 4].map(num => (
+                            <div key={num} className="player-card">
+                                <h4 className="player-card-header">
+                                    <div className="player-number">{num}</div>
+                                    Player {num} *
+                                </h4>
+                                <div className="input-grid">
+                                    <div className="input-group">
+                                        <label className="input-label">In-Game Name</label>
+                                        <input
+                                            type="text"
+                                            name={`player${num}Name`}
+                                            className="input-field"
+                                            placeholder="Player's IGN"
+                                            value={formData[`player${num}Name`]}
+                                            onChange={handleChange}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="input-group">
+                                        <label className="input-label">BGMI ID</label>
+                                        <input
+                                            type="text"
+                                            name={`player${num}Id`}
+                                            className="input-field"
+                                            placeholder="e.g. 512345678"
+                                            value={formData[`player${num}Id`]}
+                                            onChange={handleChange}
+                                            required
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                        {/* Substitute Player */}
+                        <div className="substitute-card">
+                            <h4 className="player-card-header">
+                                <div className="player-number">S</div>
+                                Substitute Player (Optional)
+                            </h4>
+                            <div className="input-grid">
+                                <div className="input-group">
                                     <label className="input-label">In-Game Name</label>
                                     <input
                                         type="text"
-                                        name={`player${num}Name`}
+                                        name="substituteName"
                                         className="input-field"
-                                        placeholder="Player's IGN"
-                                        value={formData[`player${num}Name`]}
+                                        placeholder="Substitute's IGN"
+                                        value={formData.substituteName}
                                         onChange={handleChange}
-                                        required
                                     />
                                 </div>
-                                <div>
+                                <div className="input-group">
                                     <label className="input-label">BGMI ID</label>
                                     <input
                                         type="text"
-                                        name={`player${num}Id`}
+                                        name="substituteId"
                                         className="input-field"
                                         placeholder="e.g. 512345678"
-                                        value={formData[`player${num}Id`]}
+                                        value={formData.substituteId}
                                         onChange={handleChange}
-                                        required
                                     />
                                 </div>
                             </div>
                         </div>
-                    ))}
 
-                    {/* Substitute Player */}
-                    <div style={{ marginBottom: '20px', padding: '15px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                        <h4 style={{ marginBottom: '15px', color: 'var(--text-primary)' }}>Substitute Player (Optional)</h4>
-                        <div className="grid-2">
-                            <div>
-                                <label className="input-label">In-Game Name</label>
-                                <input
-                                    type="text"
-                                    name="substituteName"
-                                    className="input-field"
-                                    placeholder="Substitute's IGN"
-                                    value={formData.substituteName}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                            <div>
-                                <label className="input-label">BGMI ID</label>
-                                <input
-                                    type="text"
-                                    name="substituteId"
-                                    className="input-field"
-                                    placeholder="e.g. 512345678"
-                                    value={formData.substituteId}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Agreement Section */}
-                    <div style={{ marginTop: '30px', padding: '20px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                        <h3 style={{ color: 'var(--accent-color)', marginBottom: '20px' }}>Tournament Agreement</h3>
-                        
-                        <div style={{ marginBottom: '15px' }}>
-                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                        {/* Agreement Section */}
+                        <div className="agreement-section">
+                            <h3 className="section-header">Tournament Agreement</h3>
+                            
+                            <label className="checkbox-label">
                                 <input
                                     type="checkbox"
                                     name="agreeToRules"
                                     checked={formData.agreeToRules}
                                     onChange={handleChange}
-                                    style={{ marginTop: '3px' }}
                                     required
                                 />
-                                <span style={{ color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                <span className="checkbox-text">
                                     I agree to follow all tournament rules and regulations. Any violation may result in disqualification.
                                 </span>
                             </label>
-                        </div>
-                        
-                        <div style={{ marginBottom: '15px' }}>
-                            <label style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', cursor: 'pointer' }}>
+                            
+                            <label className="checkbox-label">
                                 <input
                                     type="checkbox"
                                     name="agreeToProof"
                                     checked={formData.agreeToProof}
                                     onChange={handleChange}
-                                    style={{ marginTop: '3px' }}
                                     required
                                 />
-                                <span style={{ color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+                                <span className="checkbox-text">
                                     I understand that if suspicious activity is detected, I must provide proof (screenshots, recordings) when requested by organizers.
                                 </span>
                             </label>
                         </div>
-                    </div>
 
-                    <div className="note-section" style={{ marginTop: '20px', padding: '15px', background: 'rgba(255, 170, 0, 0.1)', borderRadius: '8px', marginBottom: '20px' }}>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-                            <strong>Note:</strong> Please ensure all information is accurate. 
-                            BGMI IDs will be verified before matches. 
-                            Registration fee and payment details will be shared after approval.
-                        </p>
-                    </div>
+                        <div className="note-section">
+                            <p>
+                                <strong>Note:</strong> Please ensure all information is accurate. 
+                                BGMI IDs will be verified before matches. 
+                                Registration fee and payment details will be shared after approval.
+                            </p>
+                        </div>
 
-                    <button
-                        type="submit"
-                        className="btn-primary"
-                        style={{ width: '100%', padding: '15px', fontSize: '1.1rem' }}
-                        disabled={loading}
-                    >
-                        {loading ? 'Registering Team...' : 'Submit Registration'}
-                    </button>
-                </form>
+                        <button
+                            type="submit"
+                            className="btn-submit"
+                            disabled={loading}
+                        >
+                            {loading ? 'Registering Team...' : 'Submit Registration'}
+                        </button>
+                    </form>
+                </div>
             </div>
+
+            {/* Success Modal */}
+            {showSuccessModal && (
+                <div className="success-modal-overlay">
+                    <div className="success-modal">
+                        <div className="success-icon">🎉</div>
+                        <h2>Registration Successful!</h2>
+                        <div className="success-details">
+                            <p><strong>Team:</strong> {successData.teamName}</p>
+                            <p><strong>Slot:</strong> Pending</p>
+                            <p><strong>Status:</strong> Pending</p>
+                        </div>
+                        <p className="success-note">Your slot number will be assigned by admin after approval.</p>
+                        <button 
+                            className="btn-success-ok"
+                            onClick={() => {
+                                setShowSuccessModal(false);
+                                navigate('/');
+                                window.scrollTo(0, 0);
+                            }}
+                        >
+                            Continue to Home
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Error Modal */}
+            {errorModal.show && (
+                <div className="success-modal-overlay">
+                    <div className="success-modal">
+                        <div className="success-icon" style={{ fontSize: '3rem' }}>❌</div>
+                        <h2 style={{ color: 'var(--danger)' }}>Error</h2>
+                        <p style={{ fontSize: '1.1rem', margin: '20px 0' }}>{errorModal.message}</p>
+                        <button 
+                            className="btn-success-ok"
+                            onClick={() => setErrorModal({ show: false, message: '' })}
+                        >
+                            OK
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

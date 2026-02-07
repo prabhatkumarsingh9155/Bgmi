@@ -1,20 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const NotificationPopup = () => {
     const [notification, setNotification] = useState(null);
     const [showPopup, setShowPopup] = useState(false);
 
     useEffect(() => {
-        checkForNewNotifications();
-    }, []);
-
-    const checkForNewNotifications = async () => {
-        try {
-            const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
-            const docSnap = await getDoc(docRef);
-            
+        const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const currentData = docSnap.data().notifications;
                 if (currentData && currentData !== "") {
@@ -22,8 +16,6 @@ const NotificationPopup = () => {
                         const notifications = JSON.parse(currentData);
                         if (notifications.length > 0) {
                             const latestNotification = notifications[0];
-                            
-                            // Check if user has already seen this notification
                             const seenNotifications = JSON.parse(localStorage.getItem('seenNotifications') || '[]');
                             
                             if (!seenNotifications.includes(latestNotification.id)) {
@@ -31,15 +23,13 @@ const NotificationPopup = () => {
                                 setShowPopup(true);
                             }
                         }
-                    } catch (e) {
-                        console.error('Error parsing notifications:', e);
-                    }
+                    } catch (e) {}
                 }
             }
-        } catch (error) {
-            console.error('Error fetching notifications:', error);
-        }
-    };
+        });
+        
+        return () => unsubscribe();
+    }, []);
 
     const closePopup = () => {
         if (notification) {

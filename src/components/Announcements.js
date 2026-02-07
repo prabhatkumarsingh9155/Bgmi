@@ -1,32 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const Announcements = () => {
     const [news, setNews] = useState([]);
 
     useEffect(() => {
-        const fetchNews = async () => {
-            try {
-                const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
-                const docSnap = await getDoc(docRef);
-                
-                if (docSnap.exists()) {
-                    const currentData = docSnap.data().notifications;
-                    if (currentData && currentData !== "") {
-                        try {
-                            const notifications = JSON.parse(currentData);
-                            setNews(notifications.slice(0, 5)); // Show latest 5
-                        } catch (e) {
-                            setNews([]);
-                        }
+        const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const currentData = docSnap.data().notifications;
+                if (currentData && currentData !== "") {
+                    try {
+                        const notifications = JSON.parse(currentData);
+                        setNews(notifications.slice(0, 5));
+                    } catch (e) {
+                        setNews([]);
                     }
                 }
-            } catch (err) {
-                console.error("Error fetching notifications", err);
             }
-        };
-        fetchNews();
+        });
+        
+        return () => unsubscribe();
     }, []);
 
     if (news.length === 0) return null;

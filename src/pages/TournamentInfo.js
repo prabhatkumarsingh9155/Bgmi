@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { FaTrophy, FaCalendarAlt, FaGamepad, FaUsers, FaTimesCircle } from 'react-icons/fa';
+import './TournamentInfo.css';
 
 const TournamentInfo = () => {
     const navigate = useNavigate();
@@ -11,14 +13,8 @@ const TournamentInfo = () => {
     const [showRoomPopup, setShowRoomPopup] = useState(false);
 
     useEffect(() => {
-        fetchTournamentInfo();
-    }, []);
-
-    const fetchTournamentInfo = async () => {
-        try {
-            const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
-            const docSnap = await getDoc(docRef);
-            
+        const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const data = docSnap.data().tournamentInfo;
                 if (data && data !== "") {
@@ -26,7 +22,6 @@ const TournamentInfo = () => {
                         const parsedData = JSON.parse(data);
                         setTournamentData(parsedData);
                         
-                        // Extract matches with room details
                         const matchesWithRooms = [];
                         (parsedData.rounds || []).forEach(round => {
                             (round.days || []).forEach((day, dayIndex) => {
@@ -44,9 +39,6 @@ const TournamentInfo = () => {
                         });
                         
                         setRoomDetails(matchesWithRooms);
-                        if (matchesWithRooms.length > 0) {
-                            setShowRoomPopup(true);
-                        }
                     } catch (e) {
                         setTournamentData(getDefaultData());
                     }
@@ -56,12 +48,11 @@ const TournamentInfo = () => {
             } else {
                 setTournamentData(getDefaultData());
             }
-        } catch (error) {
-            console.error('Error fetching tournament info:', error);
-            setTournamentData(getDefaultData());
-        }
-        setLoading(false);
-    };
+            setLoading(false);
+        });
+        
+        return () => unsubscribe();
+    }, []);
 
     const getDefaultData = () => ({
         firstPrize: '₹30,000',
@@ -134,139 +125,116 @@ const TournamentInfo = () => {
         ]
     });
 
-    const handleLogout = () => {
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('isLoggedIn');
-        navigate('/');
-        alert('Logged out successfully!');
-    };
-
     if (loading) {
-        return <div className="container" style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>;
+        return (
+            <div className="tournament-loading">
+                <div className="loading-spinner"></div>
+                <p>Loading tournament info...</p>
+            </div>
+        );
     }
 
     return (
-        <div className="container" style={{ padding: '50px 10px' }}>
+        <div className="tournament-page">
             {/* Room Details Popup */}
             {showRoomPopup && roomDetails.length > 0 && (
-                <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0, 0, 0, 0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
-                    <div style={{ background: 'var(--bg-secondary)', borderRadius: '12px', padding: '30px', maxWidth: '500px', width: '100%', maxHeight: '80vh', overflowY: 'auto', position: 'relative', border: '2px solid var(--accent-color)' }}>
-                        <button
-                            onClick={() => setShowRoomPopup(false)}
-                            style={{ position: 'absolute', top: '10px', right: '10px', background: 'transparent', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: 'var(--text-primary)' }}
-                        >
-                            ×
+                <div className="room-popup-overlay">
+                    <div className="room-popup">
+                        <button onClick={() => setShowRoomPopup(false)} className="popup-close">
+                            <FaTimesCircle />
                         </button>
-                        <h3 style={{ color: 'var(--accent-color)', marginBottom: '20px', textAlign: 'center', fontSize: '1.5rem' }}>🎮 Room Details</h3>
-                        {roomDetails.map((room, index) => (
-                            <div key={index} style={{ marginBottom: index < roomDetails.length - 1 ? '30px' : '0', padding: '25px', background: 'var(--bg-primary)', borderRadius: '8px', border: '2px solid var(--accent-color)' }}>
-                                <h4 style={{ color: 'var(--accent-color)', marginBottom: '20px', textAlign: 'center', fontSize: '1.3rem', borderBottom: '2px solid var(--accent-color)', paddingBottom: '10px' }}>
-                                    {room.matchName}
-                                </h4>
-                                <p style={{ textAlign: 'center', marginBottom: '15px', color: 'var(--text-secondary)' }}>🕒 {room.time}</p>
-                                <div style={{ marginBottom: '15px' }}>
-                                    <p style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '1rem', color: 'var(--text-primary)' }}>🎮 Room ID</p>
-                                    <div style={{ padding: '15px', background: 'rgba(0, 255, 0, 0.15)', borderRadius: '6px', border: '2px solid var(--success)' }}>
-                                        <p style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--success)', textAlign: 'center', letterSpacing: '2px' }}>{room.roomId}</p>
+                        <h3 className="popup-title">🎮 Room Details</h3>
+                        <div className="room-list">
+                            {roomDetails.map((room, index) => (
+                                <div key={index} className="room-card">
+                                    <h4 className="room-match-name">{room.matchName}</h4>
+                                    <p className="room-time">🕒 {room.time}</p>
+                                    <div className="room-detail">
+                                        <p className="detail-label">🎮 Room ID</p>
+                                        <div className="detail-value">{room.roomId}</div>
+                                    </div>
+                                    <div className="room-detail">
+                                        <p className="detail-label">🔑 Password</p>
+                                        <div className="detail-value">{room.password}</div>
                                     </div>
                                 </div>
-                                <div>
-                                    <p style={{ fontWeight: 'bold', marginBottom: '8px', fontSize: '1rem', color: 'var(--text-primary)' }}>🔑 Password</p>
-                                    <div style={{ padding: '15px', background: 'rgba(0, 255, 0, 0.15)', borderRadius: '6px', border: '2px solid var(--success)' }}>
-                                        <p style={{ fontSize: '1.4rem', fontWeight: 'bold', color: 'var(--success)', textAlign: 'center', letterSpacing: '2px' }}>{room.password}</p>
-                                    </div>
-                                </div>
-                            </div>
-                        ))}
-                        <button
-                            onClick={() => setShowRoomPopup(false)}
-                            className="btn-primary"
-                            style={{ width: '100%', marginTop: '20px', padding: '12px' }}
-                        >
+                            ))}
+                        </div>
+                        <button onClick={() => setShowRoomPopup(false)} className="btn-popup-close">
                             Close
                         </button>
                     </div>
                 </div>
             )}
 
-            <div className="card">
-                <h2 className="heading-glitch" style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', marginBottom: '30px', textAlign: 'center' }}>
-                    🏆 Tournament Information
-                </h2>
+            <div className="container">
+                <div className="tournament-header">
+                    <FaTrophy className="header-icon" />
+                    <h1>Tournament Information</h1>
+                </div>
 
-                {/* Show Room Details Button */}
+                {/* Room Details Button */}
                 {roomDetails.length > 0 && (
-                    <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-                        <button
-                            onClick={() => setShowRoomPopup(true)}
-                            className="btn-primary"
-                            style={{ padding: '12px 30px', fontSize: 'clamp(0.9rem, 2.5vw, 1.1rem)', animation: 'pulse 2s infinite' }}
-                        >
+                    <div className="room-button-container">
+                        <button onClick={() => setShowRoomPopup(true)} className="btn-room-details">
                             🎮 View Room Details ({roomDetails.length})
                         </button>
                     </div>
                 )}
 
                 {/* Prize Pool */}
-                <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-                    <h3 style={{ color: 'var(--accent-color)', fontSize: 'clamp(1.3rem, 4vw, 1.8rem)', marginBottom: '30px' }}>
-                        🏆 Prize Distribution
-                    </h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
-                        <div style={{ padding: '20px', background: 'rgba(255, 215, 0, 0.1)', borderRadius: '12px', border: '2px solid gold' }}>
-                            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🥇</div>
-                            <h4 style={{ color: 'gold', marginBottom: '10px' }}>1st Prize</h4>
-                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{tournamentData.firstPrize}</p>
+                <section className="prize-section">
+                    <h2 className="section-title">🏆 Prize Distribution</h2>
+                    <div className="prize-grid">
+                        <div className="prize-card gold">
+                            <div className="prize-medal">🥇</div>
+                            <h3>1st Prize</h3>
+                            <p className="prize-amount">{tournamentData.firstPrize}</p>
                         </div>
-                        <div style={{ padding: '20px', background: 'rgba(192, 192, 192, 0.1)', borderRadius: '12px', border: '2px solid silver' }}>
-                            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🥈</div>
-                            <h4 style={{ color: 'silver', marginBottom: '10px' }}>2nd Prize</h4>
-                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{tournamentData.secondPrize}</p>
+                        <div className="prize-card silver">
+                            <div className="prize-medal">🥈</div>
+                            <h3>2nd Prize</h3>
+                            <p className="prize-amount">{tournamentData.secondPrize}</p>
                         </div>
-                        <div style={{ padding: '20px', background: 'rgba(205, 127, 50, 0.1)', borderRadius: '12px', border: '2px solid #cd7f32' }}>
-                            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🥉</div>
-                            <h4 style={{ color: '#cd7f32', marginBottom: '10px' }}>3rd Prize</h4>
-                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{tournamentData.thirdPrize}</p>
+                        <div className="prize-card bronze">
+                            <div className="prize-medal">🥉</div>
+                            <h3>3rd Prize</h3>
+                            <p className="prize-amount">{tournamentData.thirdPrize}</p>
                         </div>
-                        <div style={{ padding: '20px', background: 'rgba(255, 170, 0, 0.1)', borderRadius: '12px', border: '2px solid var(--accent-color)' }}>
-                            <div style={{ fontSize: '2rem', marginBottom: '10px' }}>🏆</div>
-                            <h4 style={{ color: 'var(--accent-color)', marginBottom: '10px' }}>MVP Prize</h4>
-                            <p style={{ fontSize: '1.5rem', fontWeight: 'bold', color: 'var(--text-primary)' }}>{tournamentData.mvpPrize}</p>
+                        <div className="prize-card mvp">
+                            <div className="prize-medal">🏆</div>
+                            <h3>MVP Prize</h3>
+                            <p className="prize-amount">{tournamentData.mvpPrize}</p>
                         </div>
                     </div>
-                </div>
+                </section>
 
                 {/* Total Matches */}
-                <div style={{ textAlign: 'center', marginBottom: '40px', padding: '20px', background: 'rgba(100, 150, 255, 0.1)', borderRadius: '12px', border: '2px solid #6496ff' }}>
-                    <h3 style={{ color: '#6496ff', fontSize: 'clamp(1.2rem, 3.5vw, 1.5rem)', marginBottom: '10px' }}>
-                        🎮 Total Matches
-                    </h3>
-                    <p style={{ fontSize: 'clamp(1.8rem, 6vw, 2.5rem)', fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                        {tournamentData.totalMatches || '5'}
-                    </p>
-                </div>
+                <section className="matches-section">
+                    <FaGamepad className="section-icon" />
+                    <h3>Total Matches</h3>
+                    <p className="matches-count">{tournamentData.totalMatches || '5'}</p>
+                </section>
 
                 {/* Match Schedule */}
-                <div style={{ marginBottom: '40px' }}>
-                    <h3 style={{ color: 'var(--accent-color)', marginBottom: '20px', textAlign: 'center', fontSize: 'clamp(1.2rem, 3.5vw, 1.5rem)' }}>
-                        📅 Match Schedule
-                    </h3>
+                <section className="schedule-section">
+                    <h2 className="section-title">
+                        <FaCalendarAlt /> Match Schedule
+                    </h2>
                     
                     {(tournamentData.rounds || []).map((round, roundIndex) => (
-                        <div key={roundIndex} style={{ marginBottom: '40px' }}>
-                            <h4 style={{ color: 'var(--accent-color)', fontSize: 'clamp(1.2rem, 3.5vw, 1.5rem)', marginBottom: '20px', textAlign: 'center' }}>
-                                {round.roundTitle}
-                            </h4>
-                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+                        <div key={roundIndex} className="round-container">
+                            <h3 className="round-title">{round.roundTitle}</h3>
+                            <div className="days-grid">
                                 {(round.days || []).map((day, dayIndex) => (
-                                    <div key={dayIndex} className="card" style={{ padding: '20px', border: roundIndex === (tournamentData.rounds || []).length - 1 ? '1px solid var(--accent-color)' : '1px solid var(--border-color)' }}>
-                                        <h5 style={{ color: 'var(--text-primary)', marginBottom: '15px', fontSize: 'clamp(1rem, 3vw, 1.1rem)' }}>Day {dayIndex + 1} - {day.date}</h5>
-                                        <div>
+                                    <div key={dayIndex} className={`day-card ${roundIndex === (tournamentData.rounds || []).length - 1 ? 'final' : ''}`}>
+                                        <h4 className="day-header">Day {dayIndex + 1} - {day.date}</h4>
+                                        <div className="matches-list">
                                             {(day.matchTimes || []).map((mt, idx) => (
-                                                <div key={idx} style={{ marginBottom: '8px', padding: '8px', background: 'var(--bg-primary)', borderRadius: '4px', borderLeft: '3px solid var(--accent-color)' }}>
-                                                    <p style={{ fontWeight: 'bold', marginBottom: '4px', fontSize: 'clamp(0.9rem, 2.5vw, 1rem)' }}>{mt.matchNumber}</p>
-                                                    <p style={{ fontSize: 'clamp(0.8rem, 2vw, 0.9rem)', color: 'var(--text-secondary)' }}>🕒 {mt.time}</p>
-                                                    <p style={{ fontSize: 'clamp(0.8rem, 2vw, 0.9rem)', color: 'var(--text-secondary)' }}>🗺️ {day.map}</p>
+                                                <div key={idx} className="match-item">
+                                                    <p className="match-number">{mt.matchNumber}</p>
+                                                    <p className="match-time">🕒 {mt.time}</p>
+                                                    <p className="match-map">🗺️ {day.map}</p>
                                                 </div>
                                             ))}
                                         </div>
@@ -275,55 +243,35 @@ const TournamentInfo = () => {
                             </div>
                         </div>
                     ))}
-                </div>
+                </section>
 
                 {/* Tournament Rules */}
-                <div style={{ marginBottom: '40px' }}>
-                    <h3 style={{ color: 'var(--accent-color)', marginBottom: '20px', textAlign: 'center' }}>
-                        📋 Tournament Rules
-                    </h3>
-                    
-                    <div style={{ padding: '20px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
-                        <ul style={{ color: 'var(--text-secondary)', lineHeight: '1.8' }}>
+                <section className="rules-section">
+                    <h2 className="section-title">📋 Tournament Rules</h2>
+                    <div className="rules-card">
+                        <ul className="rules-list">
                             {tournamentData.rules.map((rule, index) => (
                                 <li key={index}>{rule}</li>
                             ))}
                         </ul>
                     </div>
-                </div>
+                </section>
 
                 {/* Registration Fee */}
-                <div style={{ textAlign: 'center', marginBottom: '30px', padding: '20px', background: 'rgba(0, 255, 100, 0.1)', borderRadius: '8px' }}>
-                    <h3 style={{ color: 'var(--success)', marginBottom: '10px' }}>
-                        🎉 Registration Fee: {tournamentData.registrationFee}
-                    </h3>
-                    <p style={{ color: 'var(--text-secondary)' }}>
-                        {tournamentData.feeDescription}
-                    </p>
-                </div>
+                <section className="fee-section">
+                    <h3>🎉 Registration Fee: {tournamentData.registrationFee}</h3>
+                    <p>{tournamentData.feeDescription}</p>
+                </section>
 
                 {/* Action Buttons */}
-                <div style={{ textAlign: 'center', display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <button 
-                        onClick={() => navigate('/profile')}
-                        className="btn-primary"
-                        style={{ padding: '15px 30px' }}
-                    >
-                        View My Team
+                <div className="action-buttons">
+                    <button onClick={() => navigate('/profile')} className="btn-action btn-primary-action">
+                        <FaUsers />
+                        <span>View My Team</span>
                     </button>
-                    <button 
-                        onClick={() => navigate('/teams')}
-                        className="btn-secondary"
-                        style={{ padding: '15px 30px' }}
-                    >
-                        View All Teams
-                    </button>
-                    <button 
-                        onClick={handleLogout}
-                        className="btn-secondary"
-                        style={{ padding: '15px 30px', background: 'var(--danger)', borderColor: 'var(--danger)' }}
-                    >
-                        Logout
+                    <button onClick={() => navigate('/teams')} className="btn-action btn-secondary-action">
+                        <FaGamepad />
+                        <span>View All Teams</span>
                     </button>
                 </div>
             </div>

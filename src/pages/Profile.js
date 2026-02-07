@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
+import { FaTrophy, FaUsers, FaEdit, FaInfoCircle, FaCheckCircle, FaClock, FaTimesCircle, FaSignOutAlt } from 'react-icons/fa';
+import './Profile.css';
 
 const Profile = () => {
     const navigate = useNavigate();
@@ -17,121 +19,180 @@ const Profile = () => {
             return;
         }
         
-        fetchTeamData(userEmail);
-    }, [navigate]);
-
-    const fetchTeamData = async (userEmail) => {
-        try {
-            const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
-            const docSnap = await getDoc(docRef);
-            
+        const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
             if (docSnap.exists()) {
                 const currentData = docSnap.data().bgmi;
                 if (currentData && currentData !== "") {
                     try {
                         const teams = JSON.parse(currentData);
                         const userTeam = teams.find(team => team.captainEmail === userEmail);
+                        
+                        if (!userTeam) {
+                            localStorage.removeItem('userEmail');
+                            localStorage.removeItem('isLoggedIn');
+                            navigate('/');
+                            return;
+                        }
+                        
                         setTeamData(userTeam);
                     } catch (e) {
                         console.error('Error parsing team data:', e);
                     }
                 }
             }
-        } catch (error) {
-            console.error('Error fetching team data:', error);
-        }
-        setLoading(false);
-    };
+            setLoading(false);
+        });
+        
+        return () => unsubscribe();
+    }, [navigate]);
+
 
     if (loading) {
-        return <div className="container" style={{ padding: '50px', textAlign: 'center' }}>Loading...</div>;
+        return (
+            <div className="profile-loading">
+                <div className="loading-spinner"></div>
+                <p>Loading your profile...</p>
+            </div>
+        );
     }
 
+    const getStatusIcon = (status) => {
+        if (status === 'Approved') return <FaCheckCircle />;
+        if (status === 'Rejected') return <FaTimesCircle />;
+        return <FaClock />;
+    };
+
+    const handleLogout = () => {
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('isLoggedIn');
+        navigate('/');
+        alert('Logged out successfully!');
+    };
+
     return (
-        <div className="container" style={{ padding: '20px 10px' }}>
-            <div className="profile-header" style={{ marginBottom: '20px' }}>
-                <h2 className="heading-glitch" style={{ fontSize: 'clamp(1.5rem, 5vw, 2rem)', margin: 0 }}>My Profile</h2>
-            </div>
+        <div className="profile-page">
+            <div className="container">
+                <div className="profile-header">
+                    <div className="profile-title">
+                        <FaTrophy className="title-icon" />
+                        <h1>My Profile</h1>
+                    </div>
+                </div>
 
-            {teamData ? (
-                <div className="card">
-                    <h3 style={{ color: 'var(--accent-color)', marginBottom: '20px', fontSize: 'clamp(1.2rem, 4vw, 1.5rem)' }}>Team Information</h3>
-                    
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '20px', marginBottom: '30px' }}>
-                        <div>
-                            <h4 style={{ color: 'var(--text-primary)', marginBottom: '10px', fontSize: 'clamp(1rem, 3vw, 1.2rem)' }}>Basic Details</h4>
-                            <p style={{ wordBreak: 'break-word' }}><strong>Team Name:</strong> {teamData.teamName}</p>
-                            <p><strong>Slot Number:</strong> #{teamData.slotNumber}</p>
-                            <p style={{ wordBreak: 'break-word' }}><strong>Captain:</strong> {teamData.captainName}</p>
-                            <p style={{ wordBreak: 'break-word' }}><strong>WhatsApp:</strong> {teamData.captainWhatsapp}</p>
-                            <p style={{ wordBreak: 'break-all' }}><strong>Email:</strong> {teamData.captainEmail}</p>
-                            <p><strong>Status:</strong> 
-                                <span style={{ 
-                                    padding: '4px 8px', 
-                                    borderRadius: '4px', 
-                                    fontSize: '0.85rem',
-                                    fontWeight: 'bold',
-                                    background: teamData.status === 'Approved' ? 'rgba(0, 255, 0, 0.1)' : teamData.status === 'Rejected' ? 'rgba(255, 0, 0, 0.1)' : 'rgba(255, 165, 0, 0.1)',
-                                    color: teamData.status === 'Approved' ? 'var(--success)' : teamData.status === 'Rejected' ? 'var(--danger)' : 'orange',
-                                    marginLeft: '5px',
-                                    display: 'inline-block'
-                                }}>
-                                    {teamData.status || 'Pending'}
-                                </span>
-                            </p>
-                        </div>
-
-                        <div>
-                            <h4 style={{ color: 'var(--text-primary)', marginBottom: '10px', fontSize: 'clamp(1rem, 3vw, 1.2rem)' }}>Squad Details</h4>
-                            <div style={{ marginBottom: '10px' }}>
-                                <p style={{ wordBreak: 'break-word' }}><strong>Player 1:</strong> {teamData.player1Name} (ID: {teamData.player1Id})</p>
-                                <p style={{ wordBreak: 'break-word' }}><strong>Player 2:</strong> {teamData.player2Name} (ID: {teamData.player2Id})</p>
-                                <p style={{ wordBreak: 'break-word' }}><strong>Player 3:</strong> {teamData.player3Name} (ID: {teamData.player3Id})</p>
-                                <p style={{ wordBreak: 'break-word' }}><strong>Player 4:</strong> {teamData.player4Name} (ID: {teamData.player4Id})</p>
-                                {teamData.substituteName && (
-                                    <p style={{ wordBreak: 'break-word' }}><strong>Substitute:</strong> {teamData.substituteName} (ID: {teamData.substituteId})</p>
-                                )}
+                {teamData ? (
+                    <>
+                        <div className="team-banner">
+                            <div className="banner-content">
+                                <h2 className="team-name">{teamData.teamName}</h2>
+                                <div className="team-slot">Slot {teamData.slotNumber ? `#${teamData.slotNumber}` : 'Pending'}</div>
+                            </div>
+                            <div className={`status-badge status-${(teamData.status || 'Pending').toLowerCase()}`}>
+                                {getStatusIcon(teamData.status)}
+                                <span>{teamData.status || 'Pending'}</span>
                             </div>
                         </div>
-                    </div>
 
-                    <div style={{ padding: '15px', background: 'rgba(255, 170, 0, 0.1)', borderRadius: '8px' }}>
-                        <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', margin: 0, wordBreak: 'break-word' }}>
-                            <strong>Registration Date:</strong> {new Date(teamData.registrationDate).toLocaleDateString()}
-                        </p>
-                    </div>
+                        <div className="profile-grid">
+                            <div className="info-card">
+                                <div className="card-header">
+                                    <FaUsers className="card-icon" />
+                                    <h3>Captain Details</h3>
+                                </div>
+                                <div className="info-list">
+                                    <div className="info-item">
+                                        <span className="label">Name</span>
+                                        <span className="value">{teamData.captainName}</span>
+                                    </div>
+                                    <div className="info-item">
+                                        <span className="label">WhatsApp</span>
+                                        <span className="value">{teamData.captainWhatsapp}</span>
+                                    </div>
+                                    <div className="info-item">
+                                        <span className="label">Email</span>
+                                        <span className="value email">{teamData.captainEmail}</span>
+                                    </div>
+                                    <div className="info-item">
+                                        <span className="label">Registered</span>
+                                        <span className="value">{new Date(teamData.registrationDate).toLocaleDateString()}</span>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <div style={{ textAlign: 'center', marginTop: '20px', display: 'flex', gap: '10px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                        <button 
-                            onClick={() => navigate('/edit-team')}
-                            className="btn-primary"
-                            style={{ padding: '10px 20px', fontSize: '0.9rem', flex: '1 1 auto', minWidth: '140px' }}
-                        >
-                            Edit Team Info
-                        </button>
-                        <button 
-                            onClick={() => navigate('/tournament-info')}
-                            className="btn-secondary"
-                            style={{ padding: '10px 20px', fontSize: '0.9rem', flex: '1 1 auto', minWidth: '140px' }}
-                        >
-                            Tournament Info
+                            <div className="info-card">
+                                <div className="card-header">
+                                    <FaUsers className="card-icon" />
+                                    <h3>Squad Members</h3>
+                                </div>
+                                <div className="players-list">
+                                    <div className="player-item">
+                                        <div className="player-number">1</div>
+                                        <div className="player-info">
+                                            <div className="player-name">{teamData.player1Name}</div>
+                                            <div className="player-id">ID: {teamData.player1Id}</div>
+                                        </div>
+                                    </div>
+                                    <div className="player-item">
+                                        <div className="player-number">2</div>
+                                        <div className="player-info">
+                                            <div className="player-name">{teamData.player2Name}</div>
+                                            <div className="player-id">ID: {teamData.player2Id}</div>
+                                        </div>
+                                    </div>
+                                    <div className="player-item">
+                                        <div className="player-number">3</div>
+                                        <div className="player-info">
+                                            <div className="player-name">{teamData.player3Name}</div>
+                                            <div className="player-id">ID: {teamData.player3Id}</div>
+                                        </div>
+                                    </div>
+                                    <div className="player-item">
+                                        <div className="player-number">4</div>
+                                        <div className="player-info">
+                                            <div className="player-name">{teamData.player4Name}</div>
+                                            <div className="player-id">ID: {teamData.player4Id}</div>
+                                        </div>
+                                    </div>
+                                    {teamData.substituteName && (
+                                        <div className="player-item substitute">
+                                            <div className="player-number">S</div>
+                                            <div className="player-info">
+                                                <div className="player-name">{teamData.substituteName}</div>
+                                                <div className="player-id">ID: {teamData.substituteId}</div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="action-buttons">
+                            <button onClick={() => navigate('/edit-team')} className="btn-action btn-edit">
+                                <FaEdit />
+                                <span>Edit Team Info</span>
+                            </button>
+                            <button onClick={() => navigate('/tournament-info')} className="btn-action btn-info">
+                                <FaInfoCircle />
+                                <span>Tournament Info</span>
+                            </button>
+                            <button onClick={handleLogout} className="btn-action btn-logout">
+                                <FaSignOutAlt />
+                                <span>Logout</span>
+                            </button>
+                        </div>
+                    </>
+                ) : (
+                    <div className="no-team-card">
+                        <div className="no-team-icon">🎮</div>
+                        <h3>No Team Registered</h3>
+                        <p>You haven't registered a team yet. Join the tournament now!</p>
+                        <button onClick={() => navigate('/register')} className="btn-register">
+                            <span>Register Your Team</span>
+                            <span className="btn-arrow">→</span>
                         </button>
                     </div>
-                </div>
-            ) : (
-                <div className="card" style={{ textAlign: 'center', padding: '40px 20px' }}>
-                    <p style={{ fontSize: 'clamp(1rem, 4vw, 1.2rem)', color: 'var(--text-secondary)' }}>
-                        No team registration found for your account.
-                    </p>
-                    <button 
-                        onClick={() => navigate('/register')}
-                        className="btn-primary"
-                        style={{ marginTop: '20px', width: '100%', maxWidth: '300px' }}
-                    >
-                        Register Your Team
-                    </button>
-                </div>
-            )}
+                )}
+            </div>
         </div>
     );
 };

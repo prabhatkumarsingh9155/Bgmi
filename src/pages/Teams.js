@@ -1,35 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot } from 'firebase/firestore';
 
 const Teams = () => {
     const [teams, setTeams] = useState([]);
 
     useEffect(() => {
-        const loadTeams = async () => {
-            try {
-                const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
-                const docSnap = await getDoc(docRef);
-                
-                let teams = [];
-                if (docSnap.exists()) {
-                    const currentData = docSnap.data().bgmi;
-                    if (currentData && currentData !== "") {
-                        try {
-                            teams = JSON.parse(currentData);
-                        } catch (e) {
-                            teams = [];
-                        }
+        const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const currentData = docSnap.data().bgmi;
+                if (currentData && currentData !== "") {
+                    try {
+                        const teams = JSON.parse(currentData);
+                        teams.sort((a, b) => (a.slotNumber || 0) - (b.slotNumber || 0));
+                        setTeams(teams);
+                    } catch (e) {
+                        setTeams([]);
                     }
                 }
-                
-                teams.sort((a, b) => (a.slotNumber || 0) - (b.slotNumber || 0));
-                setTeams(teams);
-            } catch (error) {
-                console.error("Error loading teams:", error);
             }
-        };
-        loadTeams();
+        });
+        
+        return () => unsubscribe();
     }, []);
 
     return (
@@ -60,7 +53,7 @@ const Teams = () => {
                             <tbody>
                                 {teams.map((team, index) => (
                                     <tr key={index} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                                        <td style={{ padding: '15px' }}>#{team.slotNumber}</td>
+                                        <td style={{ padding: '15px' }}>{team.slotNumber ? `#${team.slotNumber}` : 'Pending'}</td>
                                         <td style={{ padding: '15px', fontWeight: 'bold' }}>{team.teamName}</td>
                                         <td style={{ padding: '15px' }}>{team.captainWhatsapp}</td>
                                         <td style={{ padding: '15px', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
