@@ -1,0 +1,236 @@
+/* ── Android/Chrome install banner ── */
+.install-banner {
+    position: fixed;
+    bottom: 80px; /* above bottom nav */
+    left: 12px;
+    right: 12px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent-color);
+    border-radius: 16px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 8px 32px rgba(255, 170, 0, 0.25), 0 2px 8px rgba(0,0,0,0.4);
+    z-index: 1200;
+    animation: install-slide-up 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes install-slide-up {
+    from { transform: translateY(120%); opacity: 0; }
+    to   { transform: translateY(0);    opacity: 1; }
+}
+
+.install-banner__icon {
+    width: 40px;
+    height: 40px;
+    background: linear-gradient(135deg, var(--accent-color), #ff8800);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #000;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.install-banner__text {
+    flex: 1;
+    min-width: 0;
+}
+
+.install-banner__title {
+    font-weight: 700;
+    font-size: 0.95rem;
+    color: var(--text-primary);
+    margin: 0 0 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.install-banner__sub {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.install-banner__btn {
+    background: linear-gradient(135deg, var(--accent-color), #ff8800);
+    color: #000;
+    border: none;
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: opacity 0.2s;
+}
+
+.install-banner__btn:hover {
+    opacity: 0.85;
+}
+
+.install-banner__close {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    transition: color 0.2s;
+}
+
+.install-banner__close:hover {
+    color: var(--text-primary);
+}
+
+/* ── iOS guide modal ── */
+.install-ios-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px);
+    z-index: 1300;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 0;
+    animation: ios-fade-in 0.25s ease;
+}
+
+@keyframes ios-fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+.install-ios-box {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 20px 20px 0 0;
+    padding: 28px 24px 20px;
+    width: 100%;
+    max-width: 480px;
+    position: relative;
+    animation: ios-slide-up 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes ios-slide-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+.install-ios-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-secondary);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.install-ios-icon-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 14px;
+}
+
+.install-ios-icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    border: 2px solid var(--border-color);
+}
+
+.install-ios-title {
+    font-size: 1.2rem;
+    font-weight: 700;
+    text-align: center;
+    color: var(--text-primary);
+    margin: 0 0 6px;
+}
+
+.install-ios-sub {
+    font-size: 0.85rem;
+    text-align: center;
+    color: var(--text-secondary);
+    margin: 0 0 20px;
+}
+
+.install-ios-steps {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    counter-reset: ios-step;
+}
+
+.install-ios-steps li {
+    counter-increment: ios-step;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.install-ios-steps li::before {
+    content: counter(ios-step);
+    width: 26px;
+    height: 26px;
+    background: linear-gradient(135deg, var(--accent-color), #ff8800);
+    color: #000;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.install-ios-share-icon {
+    color: var(--accent-color);
+    font-size: 1rem;
+    vertical-align: middle;
+    margin: 0 2px;
+}
+
+.install-ios-arrow-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.install-ios-arrow {
+    color: var(--accent-color);
+    font-size: 1.4rem;
+    animation: bounce 1s ease infinite;
+}
+
+.install-ios-arrow-label {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
+@keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50%       { transform: translateY(6px); }
+}

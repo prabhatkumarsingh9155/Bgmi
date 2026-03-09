@@ -1,79 +1,120 @@
-import React, { useState } from 'react';
-import { db, auth } from '../firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
+import { db } from '../firebase';
+import { doc, getDoc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { useNavigate } from 'react-router-dom';
-import { FaEye, FaEyeSlash, FaUsers, FaGamepad } from 'react-icons/fa';
+import { FaUsers, FaGamepad } from 'react-icons/fa';
 import './Registration.css';
 
 const Registration = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
+    const [currentStep, setCurrentStep] = useState(1);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [successData, setSuccessData] = useState({ teamName: '', slotNumber: 0 });
     const [errorModal, setErrorModal] = useState({ show: false, message: '' });
+    const [showFillButton, setShowFillButton] = useState(false);
+    const [screenshotRequired, setScreenshotRequired] = useState(false);
+    const [uploadingIndex, setUploadingIndex] = useState({ type: null, index: null });
     const [formData, setFormData] = useState({
-        // Team Details
         teamName: '',
-        captainName: '',
         captainWhatsapp: '',
-        captainEmail: '',
-        captainPassword: '',
-        alternateContact: '',
-        
-        // Player Details
-        player1Name: '', player1Id: '',
-        player2Name: '', player2Id: '',
-        player3Name: '', player3Id: '',
-        player4Name: '', player4Id: '',
-        
-        // Substitute Player
-        substituteName: '', substituteId: '',
-        
-        // Agreements
-        agreeToRules: false,
-        agreeToProof: false
+        player1Name: '',
+        player2Name: '',
+        player3Name: '',
+        player4Name: '',
+        whatsappScreenshots: [null, null, null, null],
+        youtubeScreenshots: [null, null, null, null]
     });
+
+    useEffect(() => {
+        const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
+        const unsubscribe = onSnapshot(docRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                if (data.registrationFillMode !== undefined) {
+                    setShowFillButton(data.registrationFillMode);
+                }
+                if (data.screenshotProofEnabled !== undefined) {
+                    setScreenshotRequired(data.screenshotProofEnabled);
+                }
+            }
+        });
+        return () => unsubscribe();
+    }, []);
 
     const handleChange = (e) => {
         setFormData({ ...formData, [e.target.name]: e.target.value });
     };
 
-    const handleEmailChange = (e) => {
-        setFormData({ ...formData, captainEmail: e.target.value });
-    };
-
     const fillSampleData = () => {
         setFormData({
-            // Team Details
             teamName: 'Soul Esports',
-            captainName: 'Naman Mathur',
             captainWhatsapp: '9876543210',
-            captainEmail: 'mortal@soulesports.com',
-            captainPassword: 'bgmi2024',
-            alternateContact: '9876543211',
-            
-            // Player Details
-            player1Name: 'Mortal', player1Id: '512345678',
-            player2Name: 'Viper', player2Id: '512345679',
-            player3Name: 'Clutchgod', player3Id: '512345680',
-            player4Name: 'Owais', player4Id: '512345681',
-            
-            // Substitute Player
-            substituteName: 'Regaltos', substituteId: '512345682',
-            
-            // Agreements
-            agreeToRules: true,
-            agreeToProof: true
+            player1Name: 'Mortal',
+            player2Name: 'Viper',
+            player3Name: 'Clutchgod',
+            player4Name: 'Owais',
+            whatsappScreenshots: [null, null, null, null],
+            youtubeScreenshots: [null, null, null, null]
         });
     };
 
+    const handleFileUpload = async (type, index, file) => {
+        if (file && file.type.startsWith('image/')) {
+            setUploadingIndex({ type, index });
+            
+            try {
+                const uploadFormData = new FormData();
+                uploadFormData.append('image', file);
+                
+                const response = await fetch('https://api.imgbb.com/1/upload?key=8d44fe54ab424f9f79d4b8afab42a871', {
+                    method: 'POST',
+                    body: uploadFormData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const imageUrl = data.data.url;
+                    
+                    setFormData(prev => {
+                        if (type === 'whatsapp') {
+                            const newScreenshots = [...prev.whatsappScreenshots];
+                            newScreenshots[index] = imageUrl;
+                            return { ...prev, whatsappScreenshots: newScreenshots };
+                        } else {
+                            const newScreenshots = [...prev.youtubeScreenshots];
+                            newScreenshots[index] = imageUrl;
+                            return { ...prev, youtubeScreenshots: newScreenshots };
+                        }
+                    });
+                } else {
+                    setErrorModal({ show: true, message: `Upload failed: ${data.error?.message || 'Unknown error'}` });
+                }
+            } catch (error) {
+                setErrorModal({ show: true, message: `Upload failed: ${error.message}` });
+            } finally {
+                setUploadingIndex({ type: null, index: null });
+            }
+        } else {
+            setErrorModal({ show: true, message: 'Please select a valid image file' });
+        }
+    };
+
+    const selectAllSlots = (type) => {
+        document.getElementById(`${type}-file-input`).click();
+    };
+
+    const handleMultipleFiles = async (type, files) => {
+        const fileArray = Array.from(files).slice(0, 4);
+        for (let i = 0; i < fileArray.length; i++) {
+            await handleFileUpload(type, i, fileArray[i]);
+        }
+    };
+
     const validateForm = () => {
-        // Required field validation
-        const required = ['teamName', 'captainName', 'captainWhatsapp', 'captainEmail',
-                         'player1Name', 'player1Id', 'player2Name', 'player2Id',
-                         'player3Name', 'player3Id', 'player4Name', 'player4Id'];
+        const required = ['teamName', 'captainWhatsapp',
+                         'player1Name', 'player2Name', 'player3Name', 'player4Name'];
         
         for (let field of required) {
             if (!formData[field].trim()) {
@@ -82,36 +123,11 @@ const Registration = () => {
             }
         }
         
-        if (!formData.agreeToRules) {
-            setErrorModal({ show: true, message: 'Please agree to tournament rules and regulations' });
-            return false;
-        }
-        
-        if (!formData.agreeToProof) {
-            setErrorModal({ show: true, message: 'Please agree to provide proof if suspicious activity is found' });
-            return false;
-        }
-        
         if (formData.captainWhatsapp.length < 10) {
-            setErrorModal({ show: true, message: 'Please enter a valid WhatsApp number (10+ digits)' });
+            setErrorModal({ show: true, message: 'Please enter a valid phone number (10+ digits)' });
             return false;
         }
         
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(formData.captainEmail)) {
-            setErrorModal({ show: true, message: 'Please enter a valid email address' });
-            return false;
-        }
-        
-        const bgmiIds = [formData.player1Id, formData.player2Id, formData.player3Id, formData.player4Id];
-        for (let id of bgmiIds) {
-            if (!/^\d+$/.test(id)) {
-                setErrorModal({ show: true, message: 'BGMI IDs should contain only numbers' });
-                return false;
-            }
-        }
-        
-        // Check for duplicate player names within the team
         const playerNames = [formData.player1Name, formData.player2Name, formData.player3Name, formData.player4Name];
         const duplicateName = playerNames.find((name, index) => playerNames.indexOf(name) !== index);
         if (duplicateName) {
@@ -119,25 +135,42 @@ const Registration = () => {
             return false;
         }
         
-        // Check for duplicate BGMI IDs within the team
-        const duplicateTeamId = bgmiIds.find((id, index) => bgmiIds.indexOf(id) !== index);
-        if (duplicateTeamId) {
-            setErrorModal({ show: true, message: `BGMI ID "${duplicateTeamId}" is used more than once in your team!` });
-            return false;
-        }
-        
         return true;
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const validateScreenshots = () => {
+        if (!screenshotRequired) return true;
         
-        if (!validateForm()) return;
+        const allWhatsappFilled = formData.whatsappScreenshots.every(img => img !== null);
+        const allYoutubeFilled = formData.youtubeScreenshots.every(img => img !== null);
         
+        if (!allWhatsappFilled) {
+            setErrorModal({ show: true, message: 'Please upload all 4 WhatsApp screenshots' });
+            return false;
+        }
+        if (!allYoutubeFilled) {
+            setErrorModal({ show: true, message: 'Please upload all 4 YouTube screenshots' });
+            return false;
+        }
+        return true;
+    };
+
+    const handleNextStep = () => {
+        if (currentStep === 1 && validateForm()) {
+            if (screenshotRequired) {
+                setCurrentStep(2);
+            } else {
+                handleSubmit();
+            }
+        } else if (currentStep === 2 && validateScreenshots()) {
+            handleSubmit();
+        }
+    };
+
+    const handleSubmit = async () => {
         setLoading(true);
 
         try {
-            // Get current data from Firebase FIRST
             const docRef = doc(db, "DATA", "tgAL1VaR1AnqAEk6A4oc");
             const docSnap = await getDoc(docRef);
             
@@ -153,16 +186,6 @@ const Registration = () => {
                 }
             }
             
-            // Check if email exists in Firestore teams
-            const emailExists = existingTeams.some(team => 
-                team.captainEmail.toLowerCase() === formData.captainEmail.toLowerCase()
-            );
-            if (emailExists) {
-                setErrorModal({ show: true, message: 'Email already registered! Please use a different email.' });
-                setLoading(false);
-                return;
-            }
-            
             const teamExists = existingTeams.some(team => 
                 team.teamName.toLowerCase() === formData.teamName.toLowerCase()
             );
@@ -172,48 +195,40 @@ const Registration = () => {
                 return;
             }
             
-            const newIds = [formData.player1Id, formData.player2Id, formData.player3Id, formData.player4Id];
-            const existingIds = existingTeams.flatMap(team => [
-                team.player1Id, team.player2Id, team.player3Id, team.player4Id
-            ]);
-            
-            const duplicateId = newIds.find(id => existingIds.includes(id));
-            if (duplicateId) {
-                setErrorModal({ show: true, message: `BGMI ID ${duplicateId} is already registered with another team!` });
+            const phoneExists = existingTeams.some(team => 
+                team.captainWhatsapp === formData.captainWhatsapp
+            );
+            if (phoneExists) {
+                setErrorModal({ show: true, message: 'Phone number already registered!' });
                 setLoading(false);
                 return;
             }
+            
+            const deviceToken = crypto.randomUUID();
 
-            try {
-                await createUserWithEmailAndPassword(auth, formData.captainEmail, formData.captainPassword);
-            } catch (authError) {
-                if (authError.code === 'auth/email-already-in-use') {
-                    setErrorModal({ show: true, message: 'Email already registered! Please use a different email or contact admin.' });
-                } else {
-                    setErrorModal({ show: true, message: `Registration failed: ${authError.message}` });
-                }
-                setLoading(false);
-                return;
-            }
-            
-            // Store user email for session
-            localStorage.setItem('userEmail', formData.captainEmail);
-            localStorage.setItem('isLoggedIn', 'true');
-            
-            // Create team data without slot number (admin will assign)
             const teamData = {
                 ...formData,
                 slotNumber: null,
                 registrationDate: new Date().toISOString(),
-                status: 'pending',
-                paymentStatus: 'pending'
+                status: 'Pending',
+                deviceToken: deviceToken
             };
 
             existingTeams.push(teamData);
             
-            await updateDoc(docRef, {
-                bgmi: JSON.stringify(existingTeams)
-            });
+            try {
+                await updateDoc(docRef, {
+                    bgmi: JSON.stringify(existingTeams)
+                });
+            } catch (saveError) {
+                console.error('Firebase save error:', saveError);
+                throw saveError;
+            }
+
+            // Set login status with device token
+            localStorage.setItem('userEmail', formData.captainWhatsapp);
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('deviceToken', deviceToken);
 
             setSuccessData({ teamName: formData.teamName, slotNumber: 'Pending' });
             setShowSuccessModal(true);
@@ -235,17 +250,21 @@ const Registration = () => {
                 </div>
 
                 <div className="registration-form-card">
-                    <div className="sample-btn-container">
-                        <button 
-                            type="button" 
-                            onClick={fillSampleData}
-                            className="btn-sample"
-                        >
-                            Fill Sample Data
-                        </button>
-                    </div>
+                    {showFillButton && (
+                        <div className="sample-btn-container">
+                            <button 
+                                type="button" 
+                                onClick={fillSampleData}
+                                className="btn-sample"
+                            >
+                                Fill Sample Data
+                            </button>
+                        </div>
+                    )}
 
-                    <form onSubmit={handleSubmit}>
+                    <form onSubmit={(e) => { e.preventDefault(); handleNextStep(); }}>
+                        {currentStep === 1 && (
+                        <>
                         {/* Team Information */}
                         <h3 className="section-header">
                             <FaUsers /> Team Information
@@ -265,22 +284,7 @@ const Registration = () => {
                                 />
                             </div>
                             <div className="input-group">
-                                <label className="input-label">Captain Name *</label>
-                                <input
-                                    type="text"
-                                    name="captainName"
-                                    className="input-field"
-                                    placeholder="Captain's full name"
-                                    value={formData.captainName}
-                                    onChange={handleChange}
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div className="input-grid">
-                            <div className="input-group">
-                                <label className="input-label">Captain WhatsApp *</label>
+                                <label className="input-label">Captain Phone Number *</label>
                                 <input
                                     type="tel"
                                     name="captainWhatsapp"
@@ -289,55 +293,6 @@ const Registration = () => {
                                     value={formData.captainWhatsapp}
                                     onChange={handleChange}
                                     required
-                                />
-                            </div>
-                            <div className="input-group">
-                                <label className="input-label">Captain Email *</label>
-                                <input
-                                    type="email"
-                                    name="captainEmail"
-                                    className="input-field"
-                                    placeholder="captain@example.com"
-                                    value={formData.captainEmail}
-                                    onChange={handleEmailChange}
-                                    autoComplete="off"
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        <div className="input-grid">
-                            <div className="input-group">
-                                <label className="input-label">Password *</label>
-                                <div className="password-field">
-                                    <input
-                                        type={showPassword ? "text" : "password"}
-                                        name="captainPassword"
-                                        className="input-field"
-                                        placeholder="Enter password"
-                                        value={formData.captainPassword}
-                                        onChange={handleChange}
-                                        autoComplete="new-password"
-                                        required
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        className="password-toggle"
-                                    >
-                                        {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="input-group">
-                                <label className="input-label">Alternate Contact (Optional)</label>
-                                <input
-                                    type="tel"
-                                    name="alternateContact"
-                                    className="input-field"
-                                    placeholder="Backup contact number"
-                                    value={formData.alternateContact}
-                                    onChange={handleChange}
                                 />
                             </div>
                         </div>
@@ -353,113 +308,213 @@ const Registration = () => {
                                     <div className="player-number">{num}</div>
                                     Player {num} *
                                 </h4>
-                                <div className="input-grid">
-                                    <div className="input-group">
-                                        <label className="input-label">In-Game Name</label>
-                                        <input
-                                            type="text"
-                                            name={`player${num}Name`}
-                                            className="input-field"
-                                            placeholder="Player's IGN"
-                                            value={formData[`player${num}Name`]}
-                                            onChange={handleChange}
-                                            required
-                                        />
-                                    </div>
-                                    <div className="input-group">
-                                        <label className="input-label">BGMI ID</label>
-                                        <input
-                                            type="text"
-                                            name={`player${num}Id`}
-                                            className="input-field"
-                                            placeholder="e.g. 512345678"
-                                            value={formData[`player${num}Id`]}
-                                            onChange={handleChange}
-                                            required
-                                        />
-                                    </div>
+                                <div className="input-group">
+                                    <label className="input-label">In-Game Name *</label>
+                                    <input
+                                        type="text"
+                                        name={`player${num}Name`}
+                                        className="input-field"
+                                        placeholder="Player's IGN"
+                                        value={formData[`player${num}Name`]}
+                                        onChange={handleChange}
+                                        required
+                                    />
                                 </div>
                             </div>
                         ))}
+                        </>
+                        )}
 
-                        {/* Substitute Player */}
-                        <div className="substitute-card">
-                            <h4 className="player-card-header">
-                                <div className="player-number">S</div>
-                                Substitute Player (Optional)
-                            </h4>
-                            <div className="input-grid">
-                                <div className="input-group">
-                                    <label className="input-label">In-Game Name</label>
-                                    <input
-                                        type="text"
-                                        name="substituteName"
-                                        className="input-field"
-                                        placeholder="Substitute's IGN"
-                                        value={formData.substituteName}
-                                        onChange={handleChange}
-                                    />
+                        {/* Step 2: Screenshot Upload */}
+                        {currentStep === 2 && screenshotRequired && (
+                            <>
+                                {/* WhatsApp Group */}
+                                <div style={{ marginBottom: '2rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <h3 className="section-header" style={{ margin: 0 }}>
+                                            <span style={{ color: '#25D366' }}>📱 WhatsApp Group</span>
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => selectAllSlots('whatsapp')}
+                                            style={{
+                                                padding: '8px 16px',
+                                                background: '#25D366',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px',
+                                                fontWeight: '600'
+                                            }}
+                                        >
+                                            📤 Select 4 at once
+                                        </button>
+                                        <input
+                                            id="whatsapp-file-input"
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => {
+                                                handleMultipleFiles('whatsapp', e.target.files);
+                                                e.target.value = '';
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                                        {[0, 1, 2, 3].map(idx => (
+                                            <div
+                                                key={`wa-${idx}`}
+                                                onClick={() => !uploadingIndex.type && document.getElementById(`wa-${idx}`).click()}
+                                                style={{
+                                                    position: 'relative',
+                                                    aspectRatio: '1',
+                                                    backgroundImage: formData.whatsappScreenshots[idx] ? `url(${formData.whatsappScreenshots[idx]})` : 'none',
+                                                    backgroundColor: '#1a2332',
+                                                    backgroundSize: 'cover',
+                                                    backgroundPosition: 'center',
+                                                    border: '2px dashed #25D366',
+                                                    borderRadius: '12px',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: uploadingIndex.type ? 'wait' : 'pointer',
+                                                    transition: 'all 0.3s',
+                                                    opacity: uploadingIndex.type === 'whatsapp' && uploadingIndex.index === idx ? 0.5 : 1
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#20b358'}
+                                                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#25D366'}
+                                            >
+                                                {uploadingIndex.type === 'whatsapp' && uploadingIndex.index === idx ? (
+                                                    <div style={{ color: '#25D366', fontSize: '14px' }}>Uploading...</div>
+                                                ) : !formData.whatsappScreenshots[idx] ? (
+                                                    <>
+                                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>☁️</div>
+                                                        <div style={{ color: '#9ca3af', fontSize: '12px' }}>Slot {idx + 1}</div>
+                                                    </>
+                                                ) : null}
+                                                <input
+                                                    id={`wa-${idx}`}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    onChange={(e) => handleFileUpload('whatsapp', idx, e.target.files[0])}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                                <div className="input-group">
-                                    <label className="input-label">BGMI ID</label>
-                                    <input
-                                        type="text"
-                                        name="substituteId"
-                                        className="input-field"
-                                        placeholder="e.g. 512345678"
-                                        value={formData.substituteId}
-                                        onChange={handleChange}
-                                    />
+
+                                {/* YouTube Channel */}
+                                <div style={{ marginBottom: '2rem' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                                        <h3 className="section-header" style={{ margin: 0 }}>
+                                            <span style={{ color: '#FF0000' }}>🎥 YouTube Channel</span>
+                                        </h3>
+                                        <button
+                                            type="button"
+                                            onClick={() => selectAllSlots('youtube')}
+                                            style={{
+                                                padding: '8px 16px',
+                                                background: '#FF0000',
+                                                color: 'white',
+                                                border: 'none',
+                                                borderRadius: '6px',
+                                                cursor: 'pointer',
+                                                fontSize: '14px',
+                                                fontWeight: '600'
+                                            }}
+                                        >
+                                            📤 Select 4 at once
+                                        </button>
+                                        <input
+                                            id="youtube-file-input"
+                                            type="file"
+                                            accept="image/*"
+                                            multiple
+                                            style={{ display: 'none' }}
+                                            onChange={(e) => {
+                                                handleMultipleFiles('youtube', e.target.files);
+                                                e.target.value = '';
+                                            }}
+                                        />
+                                    </div>
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '1rem' }}>
+                                        {[0, 1, 2, 3].map(idx => (
+                                            <div
+                                                key={`yt-${idx}`}
+                                                onClick={() => !uploadingIndex.type && document.getElementById(`yt-${idx}`).click()}
+                                                style={{
+                                                    position: 'relative',
+                                                    aspectRatio: '1',
+                                                    backgroundImage: formData.youtubeScreenshots[idx] ? `url(${formData.youtubeScreenshots[idx]})` : 'none',
+                                                    backgroundColor: '#1a2332',
+                                                    backgroundSize: 'cover',
+                                                    backgroundPosition: 'center',
+                                                    border: '2px dashed #FF0000',
+                                                    borderRadius: '12px',
+                                                    display: 'flex',
+                                                    flexDirection: 'column',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    cursor: uploadingIndex.type ? 'wait' : 'pointer',
+                                                    transition: 'all 0.3s',
+                                                    opacity: uploadingIndex.type === 'youtube' && uploadingIndex.index === idx ? 0.5 : 1
+                                                }}
+                                                onMouseEnter={(e) => e.currentTarget.style.borderColor = '#cc0000'}
+                                                onMouseLeave={(e) => e.currentTarget.style.borderColor = '#FF0000'}
+                                            >
+                                                {uploadingIndex.type === 'youtube' && uploadingIndex.index === idx ? (
+                                                    <div style={{ color: '#FF0000', fontSize: '14px' }}>Uploading...</div>
+                                                ) : !formData.youtubeScreenshots[idx] ? (
+                                                    <>
+                                                        <div style={{ fontSize: '2rem', marginBottom: '8px' }}>☁️</div>
+                                                        <div style={{ color: '#9ca3af', fontSize: '12px' }}>Slot {idx + 1}</div>
+                                                    </>
+                                                ) : null}
+                                                <input
+                                                    id={`yt-${idx}`}
+                                                    type="file"
+                                                    accept="image/*"
+                                                    style={{ display: 'none' }}
+                                                    onChange={(e) => handleFileUpload('youtube', idx, e.target.files[0])}
+                                                />
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
 
-                        {/* Agreement Section */}
-                        <div className="agreement-section">
-                            <h3 className="section-header">Tournament Agreement</h3>
-                            
-                            <label className="checkbox-label">
-                                <input
-                                    type="checkbox"
-                                    name="agreeToRules"
-                                    checked={formData.agreeToRules}
-                                    onChange={handleChange}
-                                    required
-                                />
-                                <span className="checkbox-text">
-                                    I agree to follow all tournament rules and regulations. Any violation may result in disqualification.
-                                </span>
-                            </label>
-                            
-                            <label className="checkbox-label">
-                                <input
-                                    type="checkbox"
-                                    name="agreeToProof"
-                                    checked={formData.agreeToProof}
-                                    onChange={handleChange}
-                                    required
-                                />
-                                <span className="checkbox-text">
-                                    I understand that if suspicious activity is detected, I must provide proof (screenshots, recordings) when requested by organizers.
-                                </span>
-                            </label>
-                        </div>
+                                {/* Complete Button */}
+                                <div style={{ textAlign: 'center', marginTop: '2rem' }}>
+                                    <div style={{ color: '#9ca3af', fontSize: '14px', marginBottom: '1rem' }}>
+                                        {formData.whatsappScreenshots.filter(s => s).length + formData.youtubeScreenshots.filter(s => s).length} screenshots remaining.
+                                    </div>
+                                </div>
+                            </>
+                        )}
 
-                        <div className="note-section">
-                            <p>
-                                <strong>Note:</strong> Please ensure all information is accurate. 
-                                BGMI IDs will be verified before matches. 
-                                Registration fee and payment details will be shared after approval.
-                            </p>
+                        <div style={{ display: 'flex', gap: '10px', marginTop: '2rem' }}>
+                            {currentStep === 2 && (
+                                <button
+                                    type="button"
+                                    className="btn-submit"
+                                    onClick={() => setCurrentStep(1)}
+                                    style={{ background: '#666' }}
+                                >
+                                    ← Back
+                                </button>
+                            )}
+                            <button
+                                type="submit"
+                                className="btn-submit"
+                                disabled={loading}
+                                style={{ flex: 1 }}
+                            >
+                                {loading ? 'Processing...' : currentStep === 1 && screenshotRequired ? 'Next: Upload Screenshots →' : 'Complete Registration'}
+                            </button>
                         </div>
-
-                        <button
-                            type="submit"
-                            className="btn-submit"
-                            disabled={loading}
-                        >
-                            {loading ? 'Registering Team...' : 'Submit Registration'}
-                        </button>
                     </form>
                 </div>
             </div>
@@ -481,7 +536,7 @@ const Registration = () => {
                             onClick={() => {
                                 setShowSuccessModal(false);
                                 navigate('/');
-                                window.scrollTo(0, 0);
+                                window.location.reload();
                             }}
                         >
                             Continue to Home

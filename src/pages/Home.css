@@ -68,19 +68,26 @@
     flex-direction: column;
     gap: 10px;
     margin-bottom: 25px;
+    padding: 0 15px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
 }
 
 .title-line {
-    font-size: clamp(2rem, 8vw, 5rem);
+    font-size: clamp(1.2rem, 6vw, 5rem);
     font-weight: 900;
     text-transform: uppercase;
-    letter-spacing: 3px;
-    line-height: 1;
+    letter-spacing: clamp(0px, 0.5vw, 3px);
+    line-height: 1.1;
     background: linear-gradient(180deg, #fff 0%, #a0a5b9 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
     animation: fadeInUp 0.8s ease-out 0.2s both;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    hyphens: auto;
 }
 
 .title-accent {
@@ -436,7 +443,15 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
     .hero-section {
-        padding: 40px 15px 30px;
+        padding: 40px 10px 30px;
+    }
+    
+    .hero-title {
+        padding: 0 10px;
+    }
+    
+    .title-line {
+        font-size: clamp(1.1rem, 5.5vw, 2rem);
     }
     
     .stats-row {
@@ -496,17 +511,21 @@
 
 @media (max-width: 480px) {
     .hero-section {
-        padding: 30px 15px 20px;
+        padding: 30px 5px 20px;
+    }
+    
+    .hero-title {
+        padding: 0 5px;
     }
     
     .hero-badge {
-        font-size: 0.75rem;
-        padding: 6px 16px;
+        font-size: 0.7rem;
+        padding: 5px 14px;
     }
     
     .title-line {
-        font-size: 2rem;
-        letter-spacing: 1px;
+        font-size: clamp(0.95rem, 5vw, 1.5rem);
+        letter-spacing: 0;
     }
     
     .stats-row {

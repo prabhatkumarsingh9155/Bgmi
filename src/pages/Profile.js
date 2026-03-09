@@ -26,7 +26,9 @@ const Profile = () => {
                 if (currentData && currentData !== "") {
                     try {
                         const teams = JSON.parse(currentData);
-                        const userTeam = teams.find(team => team.captainEmail === userEmail);
+                        const userTeam = teams.find(team => 
+                            team.captainWhatsapp === userEmail || team.captainEmail === userEmail
+                        );
                         
                         if (!userTeam) {
                             localStorage.removeItem('userEmail');
@@ -129,28 +131,28 @@ const Profile = () => {
                                         <div className="player-number">1</div>
                                         <div className="player-info">
                                             <div className="player-name">{teamData.player1Name}</div>
-                                            <div className="player-id">ID: {teamData.player1Id}</div>
+                                            {teamData.player1Id && <div className="player-id">ID: {teamData.player1Id}</div>}
                                         </div>
                                     </div>
                                     <div className="player-item">
                                         <div className="player-number">2</div>
                                         <div className="player-info">
                                             <div className="player-name">{teamData.player2Name}</div>
-                                            <div className="player-id">ID: {teamData.player2Id}</div>
+                                            {teamData.player2Id && <div className="player-id">ID: {teamData.player2Id}</div>}
                                         </div>
                                     </div>
                                     <div className="player-item">
                                         <div className="player-number">3</div>
                                         <div className="player-info">
                                             <div className="player-name">{teamData.player3Name}</div>
-                                            <div className="player-id">ID: {teamData.player3Id}</div>
+                                            {teamData.player3Id && <div className="player-id">ID: {teamData.player3Id}</div>}
                                         </div>
                                     </div>
                                     <div className="player-item">
                                         <div className="player-number">4</div>
                                         <div className="player-info">
                                             <div className="player-name">{teamData.player4Name}</div>
-                                            <div className="player-id">ID: {teamData.player4Id}</div>
+                                            {teamData.player4Id && <div className="player-id">ID: {teamData.player4Id}</div>}
                                         </div>
                                     </div>
                                     {teamData.substituteName && (
@@ -158,7 +160,7 @@ const Profile = () => {
                                             <div className="player-number">S</div>
                                             <div className="player-info">
                                                 <div className="player-name">{teamData.substituteName}</div>
-                                                <div className="player-id">ID: {teamData.substituteId}</div>
+                                                {teamData.substituteId && <div className="player-id">ID: {teamData.substituteId}</div>}
                                             </div>
                                         </div>
                                     )}

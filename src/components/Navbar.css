@@ -19,6 +19,15 @@
     font-weight: 800;
     letter-spacing: 1px;
     color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.nav-logo img {
+    height: 40px;
+    width: auto;
+    object-fit: contain;
 }
 
 .text-accent {
@@ -111,6 +120,14 @@
 
 @media (max-width: 768px) {
     /* Remove all mobile-specific nav styling since we're keeping it simple */
+    .nav-logo {
+        font-size: 1.2rem;
+    }
+
+    .nav-logo img {
+        height: 35px;
+    }
+
     .profile-icon {
         font-size: 1.8rem;
         padding: 8px;

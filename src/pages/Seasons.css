@@ -1,0 +1,179 @@
+.seasons-page {
+    min-height: 80vh;
+    padding: 40px 20px;
+    background: var(--bg-primary);
+}
+
+@media (max-width: 768px) {
+    .seasons-page {
+        padding: 15px 10px;
+    }
+
+    .card {
+        padding: 0 !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+}
+
+.seasons-container {
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.seasons-header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+@media (max-width: 768px) {
+    .seasons-header {
+        margin-bottom: 20px;
+    }
+}
+
+.seasons-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    background: linear-gradient(135deg, var(--accent-color), #00d4ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+@media (max-width: 768px) {
+    .seasons-header h1 {
+        font-size: 1.5rem;
+    }
+}
+
+.seasons-header p {
+    color: var(--text-muted);
+    font-size: 1.1rem;
+}
+
+.seasons-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 25px;
+    margin-top: 30px;
+}
+
+@media (max-width: 768px) {
+    .seasons-grid {
+        gap: 15px;
+        margin-top: 20px;
+    }
+}
+
+.season-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.season-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, var(--accent-color), #00d4ff);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+}
+
+.season-card:hover {
+    transform: translateY(-5px);
+    border-color: var(--accent-color);
+    box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+}
+
+.season-card:hover::before {
+    transform: scaleX(1);
+}
+
+.season-icon {
+    font-size: 3rem;
+    color: var(--accent-color);
+    margin-bottom: 15px;
+}
+
+.season-card h3 {
+    font-size: 1.5rem;
+    margin-bottom: 15px;
+    color: #fff;
+}
+
+.season-date {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    margin-top: 10px;
+}
+
+.season-status {
+    display: inline-block;
+    margin-top: 15px;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.season-status.live {
+    background: rgba(0, 255, 0, 0.1);
+    color: var(--success);
+    border: 1px solid var(--success);
+}
+
+.season-status.upcoming {
+    background: rgba(255, 165, 0, 0.1);
+    color: orange;
+    border: 1px solid orange;
+}
+
+.season-status.completed {
+    background: rgba(150, 150, 150, 0.1);
+    color: #aaa;
+    border: 1px solid #aaa;
+}
+
+.no-seasons {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-muted);
+}
+
+.no-seasons p {
+    margin-top: 20px;
+    font-size: 1.1rem;
+}
+
+@media (max-width: 768px) {
+    .seasons-header h1 {
+        font-size: 2rem;
+    }
+
+    .seasons-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .seasons-page {
+        padding: 20px 10px;
+    }
+
+    .season-card {
+        padding: 20px;
+    }
+}

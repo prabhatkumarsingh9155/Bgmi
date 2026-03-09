@@ -13,11 +13,11 @@ const EditTeam = () => {
         captainWhatsapp: '',
         captainEmail: '',
         alternateContact: '',
-        player1Name: '', player1Id: '',
-        player2Name: '', player2Id: '',
-        player3Name: '', player3Id: '',
-        player4Name: '', player4Id: '',
-        substituteName: '', substituteId: ''
+        player1Name: '',
+        player2Name: '',
+        player3Name: '',
+        player4Name: '',
+        substituteName: ''
     });
 
     useEffect(() => {
@@ -186,29 +186,16 @@ const EditTeam = () => {
                     {[1, 2, 3, 4].map(num => (
                         <div key={num} style={{ marginBottom: '20px', padding: '15px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                             <h4 style={{ marginBottom: '15px', color: 'var(--text-primary)' }}>Player {num}</h4>
-                            <div className="grid-2">
-                                <div>
-                                    <label className="input-label">In-Game Name</label>
-                                    <input
-                                        type="text"
-                                        name={`player${num}Name`}
-                                        className="input-field"
-                                        value={formData[`player${num}Name`]}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
-                                <div>
-                                    <label className="input-label">BGMI ID</label>
-                                    <input
-                                        type="text"
-                                        name={`player${num}Id`}
-                                        className="input-field"
-                                        value={formData[`player${num}Id`]}
-                                        onChange={handleChange}
-                                        required
-                                    />
-                                </div>
+                            <div>
+                                <label className="input-label">In-Game Name</label>
+                                <input
+                                    type="text"
+                                    name={`player${num}Name`}
+                                    className="input-field"
+                                    value={formData[`player${num}Name`]}
+                                    onChange={handleChange}
+                                    required
+                                />
                             </div>
                         </div>
                     ))}
@@ -216,27 +203,15 @@ const EditTeam = () => {
                     {/* Substitute Player */}
                     <div style={{ marginBottom: '30px', padding: '15px', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                         <h4 style={{ marginBottom: '15px', color: 'var(--text-primary)' }}>Substitute Player (Optional)</h4>
-                        <div className="grid-2">
-                            <div>
-                                <label className="input-label">In-Game Name</label>
-                                <input
-                                    type="text"
-                                    name="substituteName"
-                                    className="input-field"
-                                    value={formData.substituteName}
-                                    onChange={handleChange}
-                                />
-                            </div>
-                            <div>
-                                <label className="input-label">BGMI ID</label>
-                                <input
-                                    type="text"
-                                    name="substituteId"
-                                    className="input-field"
-                                    value={formData.substituteId}
-                                    onChange={handleChange}
-                                />
-                            </div>
+                        <div>
+                            <label className="input-label">In-Game Name</label>
+                            <input
+                                type="text"
+                                name="substituteName"
+                                className="input-field"
+                                value={formData.substituteName}
+                                onChange={handleChange}
+                            />
                         </div>
                     </div>
 
